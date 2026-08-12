@@ -1,0 +1,641 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================================
+   TPH DESIGN TOKENS
+   Source of truth: docs/03-experience/07-design-system.md
+                    docs/03-experience/09-color-system.md
+                    docs/03-experience/08-typography.md
+                    docs/03-experience/10-spacing-system.md
+
+   THREE LAYERS (design-system.md §4):
+     PRIMITIVE  →  SEMANTIC  →  COMPONENT
+   Components reference SEMANTIC tokens only. Never a primitive. Never a hex.
+   This file is the only place raw colour values may appear.
+   ========================================================================= */
+
+/* ---------------------------------------------------------------------------
+   LAYER 1 — PRIMITIVES  (colour-system.md §3)
+   ------------------------------------------------------------------------ */
+@theme {
+  /* Navy — brand */
+  --color-navy-50: #eef2f8;
+  --color-navy-100: #d6e0ee;
+  --color-navy-300: #7c94b5;
+  --color-navy-500: #2b4e7e;
+  --color-navy-700: #12305f;
+  --color-navy-800: #0d2a50;
+  --color-navy-900: #0a2647;
+
+  /* Blue — action */
+  --color-blue-50: #eff5fe;
+  --color-blue-100: #dbeafe;
+  --color-blue-300: #7ca8f0;
+  --color-blue-400: #4e86e8;
+  --color-blue-600: #1554d1;
+  --color-blue-700: #1145ae;
+  --color-blue-800: #0e378a;
+
+  /* Teal — Prop ID identity */
+  --color-teal-50: #e8f6f7;
+  --color-teal-100: #cbeaec;
+  --color-teal-400: #2aa3ac;
+  --color-teal-600: #0e7c86;
+  --color-teal-700: #0a636b;
+
+  /* Green — PRIMARY ACTION, plus success and verified.
+     Green is the action colour in all ten manager UI references and in the
+     client's own logo (see 18-manager-ui-reference-analysis.md §7).
+     `500` carries success indication; `600–800` carry solid action fills,
+     which are deeper and more saturated so the two roles stay distinct. */
+  --color-green-50: #eaf8f1;
+  --color-green-100: #cdeedd;
+  --color-green-400: #3ebf7c;
+  --color-green-500: #1e9e5a;
+  --color-green-600: #157f45;
+  --color-green-700: #11683a;
+  --color-green-800: #0d5330;
+
+  /* Amber — attention and screening */
+  --color-amber-50: #fef6e7;
+  --color-amber-100: #fdebc8;
+  --color-amber-400: #f2a93b;
+  --color-amber-600: #d97706;
+  --color-amber-700: #a85b04;
+
+  /* Red — destructive */
+  --color-red-50: #fdecec;
+  --color-red-100: #fbd5d5;
+  --color-red-400: #ef6b6b;
+  --color-red-600: #dc2626;
+  --color-red-700: #b01b1b;
+
+  /* Accents only — never for status */
+  --color-orange-600: #e8912a;
+  --color-purple-600: #6d5ae6;
+
+  /* Slate — text and surfaces */
+  --color-slate-25: #fcfdfe;
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #080f1f;
+
+  /* Radius — spacing-system.md §6 */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+
+  /* Breakpoints — spacing-system.md §4. [A-07], pending OQ-40. */
+  --breakpoint-sm: 480px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1440px;
+
+  /* --- MOTION -------------------------------------------------------------
+     Expressive ease-out. The default Material curve reads generic; this
+     curve moves fast then settles, which is what makes an interface feel
+     deliberately designed rather than merely animated.
+     Ceiling stays 300ms for in-flow interactions (design-system.md §7). */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-soft: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --duration-instant: 0ms;
+  --duration-fast: 140ms;
+  --duration-base: 200ms;
+  --duration-slow: 280ms;
+  --duration-reveal: 560ms;
+
+  /* Layered content widths, rather than one container */
+  --container-content: 1280px;
+  --container-prose: 34rem; /* ~544px — editorial measure */
+
+  --spacing-target: 44px;
+}
+
+/* ---------------------------------------------------------------------------
+   FLUID TYPE SCALE — typography.md §2
+
+   `clamp()` rather than a breakpoint jump: type scales continuously with the
+   viewport, so there is no snap at 768px and the top end can be far more
+   confident than a fixed desktop value allows.
+
+   Display weights are LIGHT (300–400) with tighter negative tracking; the drop
+   to functional sub-heads is deliberately hard. That contrast is what reads as
+   editorial rather than "big bold heading".
+
+   BODY NEVER SCALES BELOW 16px: iOS Safari zooms the viewport on input focus
+   below that, which breaks every form for the less technology-confident users
+   [MVP] p.10 requires in the cohort.
+   ------------------------------------------------------------------------ */
+:root {
+  --type-display: clamp(2.25rem, 1.4rem + 3.8vw, 4.25rem); /* 36 → 68 */
+  --type-h1: clamp(1.875rem, 1.25rem + 2.6vw, 3rem); /*      30 → 48 */
+  --type-h2: clamp(1.5rem, 1.15rem + 1.6vw, 2.25rem); /*     24 → 36 */
+  --type-h3: clamp(1.25rem, 1.1rem + 0.7vw, 1.5rem); /*      20 → 24 */
+}
+
+/* ---------------------------------------------------------------------------
+   LAYER 2 — SEMANTIC TOKENS  (colour-system.md §4)
+   ------------------------------------------------------------------------ */
+:root {
+  color-scheme: light dark;
+
+  /* Surfaces */
+  --surface-page: var(--color-slate-50);
+  --surface-card: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: var(--color-slate-100);
+  --surface-inverse: var(--color-navy-900);
+
+  /* Text */
+  --text-primary: var(--color-slate-900);
+  --text-secondary: var(--color-slate-600);
+  --text-muted: var(--color-slate-500);
+  --text-inverse: #ffffff;
+  --text-link: var(--color-blue-700);
+
+  /* Borders.
+     `subtle` is a HAIRLINE for decorative dividers and card edges — low
+     contrast reads as refinement. `default` is for form controls and keeps
+     ≥3:1 against the surface (WCAG 1.4.11 Non-text Contrast). */
+  --border-subtle: rgb(15 23 42 / 0.08);
+  --border-default: var(--color-slate-300);
+  --border-strong: var(--color-slate-400);
+  --border-focus: var(--color-blue-600);
+
+  /* Headings are NAVY, body text is neutral slate. The references use navy
+     consistently for titles, which is warmer and more branded than pure
+     slate while keeping long-form copy neutral and readable. */
+  --text-heading: var(--color-navy-900);
+
+  /* Actions — GREEN is primary (reference analysis §7).
+     `--action-brand` is navy, used for the secondary emphasis the references
+     give to Search-style buttons. */
+  --action-primary-bg: var(--color-green-600);
+  --action-primary-fg: #ffffff;
+  --action-primary-hover: var(--color-green-700);
+  --action-primary-active: var(--color-green-800);
+  --action-brand-bg: var(--color-navy-900);
+  --action-brand-fg: #ffffff;
+  --action-brand-hover: var(--color-navy-800);
+  --action-secondary-bg: #ffffff;
+  --action-secondary-fg: var(--color-slate-800);
+  --action-destructive-bg: var(--color-red-600);
+  --action-destructive-fg: #ffffff;
+
+  /* Status — always paired with an icon and text. Colour is never the only
+     signal (colour-system.md §8, WCAG 1.4.1). */
+  --status-success-bg: var(--color-green-50);
+  --status-success-fg: var(--color-green-700);
+  --status-success-border: var(--color-green-100);
+  /* Light green wash behind the Trust Link explainer bands (R1, R9) */
+  --trustlink-wash: var(--color-green-50);
+  --status-attention-bg: var(--color-amber-50);
+  --status-attention-fg: var(--color-amber-700);
+  --status-attention-border: var(--color-amber-100);
+  --status-error-bg: var(--color-red-50);
+  --status-error-fg: var(--color-red-700);
+  --status-error-border: var(--color-red-100);
+  --status-info-bg: var(--color-blue-50);
+  --status-info-fg: var(--color-blue-700);
+  --status-info-border: var(--color-blue-100);
+  --status-neutral-bg: var(--color-slate-100);
+  --status-neutral-fg: var(--color-slate-700);
+  --status-neutral-border: var(--color-slate-200);
+
+  /* Product identity */
+  --propid-accent: var(--color-teal-600);
+  --propid-surface: var(--color-navy-900);
+  --propid-surface-fg: #ffffff;
+
+  --brand-accent: var(--color-orange-600);
+  --learn-accent: var(--color-purple-600);
+
+  /* --- ELEVATION ----------------------------------------------------------
+     Two-stop shadows with negative spread: a tight contact shadow plus a
+     wide soft ambient one. A single flat shadow is the most common tell of
+     an undesigned interface. Borders still carry most separation
+     (spacing-system.md §7); shadows are for surfaces layered ABOVE the page. */
+  --elev-1:
+    0 1px 2px -1px rgb(15 23 42 / 0.06),
+    0 1px 1px -0.5px rgb(15 23 42 / 0.04);
+  --elev-2:
+    0 4px 12px -3px rgb(15 23 42 / 0.09),
+    0 2px 4px -2px rgb(15 23 42 / 0.05);
+  --elev-3:
+    0 18px 40px -10px rgb(15 23 42 / 0.16),
+    0 6px 14px -4px rgb(15 23 42 / 0.07);
+  --elev-hover:
+    0 10px 26px -6px rgb(15 23 42 / 0.11),
+    0 3px 8px -2px rgb(15 23 42 / 0.05);
+
+  /* Inset highlight along the top edge of solid buttons — a small detail
+     that separates a "coloured rectangle" from a crafted control. */
+  --sheen: inset 0 1px 0 0 rgb(255 255 255 / 0.14);
+
+  /* --- ART DIRECTION ------------------------------------------------------
+     Hero scrim: navy weighted to the left so the headline sits on a dark,
+     legible field while the architecture stays visible on the right.
+     Declared here rather than inline so the "no raw colour outside tokens"
+     rule holds even for one-off art-directed treatments. */
+  --hero-scrim: linear-gradient(
+    104deg,
+    rgb(10 38 71 / 0.96) 0%,
+    rgb(10 38 71 / 0.9) 34%,
+    rgb(10 38 71 / 0.62) 58%,
+    rgb(10 38 71 / 0.3) 78%,
+    rgb(10 38 71 / 0.18) 100%
+  );
+  /* Vertical scrim used on small screens, where text sits over the image */
+  --hero-scrim-v: linear-gradient(
+    180deg,
+    rgb(10 38 71 / 0.92) 0%,
+    rgb(10 38 71 / 0.86) 55%,
+    rgb(10 38 71 / 0.94) 100%
+  );
+  /* Frosted panel over photography */
+  --glass-bg: rgb(255 255 255 / 0.1);
+  --glass-border: rgb(255 255 255 / 0.18);
+
+  --header-h: 60px;
+
+  /* ---- shadcn/ui compatibility ---------------------------------------- */
+  --background: var(--surface-page);
+  --foreground: var(--text-primary);
+  --card: var(--surface-card);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-raised);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--action-primary-bg);
+  --primary-foreground: var(--action-primary-fg);
+  --secondary: var(--surface-sunken);
+  --secondary-foreground: var(--action-secondary-fg);
+  --muted: var(--surface-sunken);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--color-blue-50);
+  --accent-foreground: var(--color-blue-700);
+  --destructive: var(--action-destructive-bg);
+  --border: var(--border-subtle);
+  --input: var(--border-default);
+  --ring: var(--border-focus);
+  --radius: 12px;
+}
+
+@media (min-width: 1280px) {
+  :root {
+    --header-h: 68px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   DARK MODE  (colour-system.md §9)
+   A separate mapping, never an inversion.
+   ------------------------------------------------------------------------ */
+.dark {
+  --surface-page: var(--color-slate-950);
+  --surface-card: var(--color-slate-900);
+  --surface-raised: var(--color-slate-800);
+  --surface-sunken: #0c1526;
+  --surface-inverse: var(--color-slate-100);
+
+  --text-primary: var(--color-slate-50);
+  --text-secondary: var(--color-slate-300);
+  --text-muted: var(--color-slate-400);
+  --text-inverse: var(--color-slate-900);
+  --text-link: var(--color-blue-300);
+
+  --border-subtle: rgb(255 255 255 / 0.09);
+  --border-default: var(--color-slate-700);
+  --border-strong: var(--color-slate-600);
+  --border-focus: var(--color-blue-300);
+
+  --text-heading: var(--color-slate-50);
+
+  --action-primary-bg: var(--color-green-400);
+  --action-primary-fg: var(--color-slate-950);
+  --action-primary-hover: #5ad094;
+  --action-primary-active: #5ad094;
+  --action-brand-bg: var(--color-slate-100);
+  --action-brand-fg: var(--color-slate-900);
+  --action-brand-hover: #ffffff;
+  --action-secondary-bg: var(--color-slate-800);
+  --action-secondary-fg: var(--color-slate-100);
+  --action-destructive-bg: var(--color-red-400);
+  --action-destructive-fg: var(--color-slate-950);
+
+  --status-success-bg: rgb(30 158 90 / 0.16);
+  --status-success-fg: var(--color-green-400);
+  --status-success-border: rgb(30 158 90 / 0.3);
+  --status-attention-bg: rgb(217 119 6 / 0.18);
+  --status-attention-fg: var(--color-amber-400);
+  --status-attention-border: rgb(217 119 6 / 0.32);
+  --status-error-bg: rgb(220 38 38 / 0.16);
+  --status-error-fg: var(--color-red-400);
+  --status-error-border: rgb(220 38 38 / 0.3);
+  --status-info-bg: rgb(21 84 209 / 0.2);
+  --status-info-fg: var(--color-blue-300);
+  --status-info-border: rgb(21 84 209 / 0.34);
+  --status-neutral-bg: var(--color-slate-800);
+  --status-neutral-fg: var(--color-slate-300);
+  --status-neutral-border: var(--color-slate-700);
+
+  --propid-accent: var(--color-teal-400);
+  --propid-surface: #0b1d38;
+  --propid-surface-fg: var(--color-slate-50);
+
+  --elev-1: 0 1px 2px -1px rgb(0 0 0 / 0.5);
+  --elev-2: 0 4px 14px -3px rgb(0 0 0 / 0.6);
+  --elev-3: 0 18px 44px -10px rgb(0 0 0 / 0.7);
+  --elev-hover: 0 10px 28px -6px rgb(0 0 0 / 0.6);
+  --sheen: inset 0 1px 0 0 rgb(255 255 255 / 0.08);
+}
+
+/* ---------------------------------------------------------------------------
+   LAYER 3 — TAILWIND UTILITY MAPPING
+
+   NOT `@theme inline`: `inline` substitutes a token's value at build time,
+   which freezes colours at their light value and stops `.dark` ever reaching
+   them. A plain `@theme` emits real custom properties, so the chain stays
+   live at runtime and one class set serves both schemes.
+   ------------------------------------------------------------------------ */
+@theme {
+  /* Bold, confident headings — the manager references use bold navy titles
+     throughout (reference analysis §6). Fluid scaling and generous rhythm are
+     retained from the impeccable.style study; the light editorial weight is
+     not, because the references outrank it for how the product should look. */
+  --text-display: var(--type-display);
+  --text-display--line-height: 1.06;
+  --text-display--letter-spacing: -0.022em;
+  --text-display--font-weight: 700;
+
+  --text-h1: var(--type-h1);
+  --text-h1--line-height: 1.12;
+  --text-h1--letter-spacing: -0.02em;
+  --text-h1--font-weight: 700;
+
+  --text-h2: var(--type-h2);
+  --text-h2--line-height: 1.2;
+  --text-h2--letter-spacing: -0.016em;
+  --text-h2--font-weight: 700;
+
+  --text-h3: var(--type-h3);
+  --text-h3--line-height: 1.3;
+  --text-h3--letter-spacing: -0.01em;
+  --text-h3--font-weight: 600;
+
+  --text-h4: 1.0625rem;
+  --text-h4--line-height: 1.4;
+  --text-h4--letter-spacing: -0.008em;
+  --text-h4--font-weight: 600;
+
+  --text-body-lg: 1.125rem;
+  --text-body-lg--line-height: 1.7;
+
+  --text-body: 1rem;
+  --text-body--line-height: 1.65;
+
+  --text-body-sm: 0.875rem;
+  --text-body-sm--line-height: 1.6;
+
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.5;
+
+  --text-overline: 0.75rem;
+  --text-overline--line-height: 1.4;
+  --text-overline--letter-spacing: 0.14em;
+  --text-overline--font-weight: 600;
+
+  --color-surface-page: var(--surface-page);
+  --color-surface-card: var(--surface-card);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-inverse: var(--surface-inverse);
+
+  --color-fg: var(--text-primary);
+  --color-fg-heading: var(--text-heading);
+  --color-fg-secondary: var(--text-secondary);
+  --color-fg-muted: var(--text-muted);
+  --color-fg-inverse: var(--text-inverse);
+  --color-fg-link: var(--text-link);
+
+  --color-line-subtle: var(--border-subtle);
+  --color-line: var(--border-default);
+  --color-line-strong: var(--border-strong);
+  --color-line-focus: var(--border-focus);
+
+  --color-action: var(--action-primary-bg);
+  --color-action-fg: var(--action-primary-fg);
+  --color-action-hover: var(--action-primary-hover);
+  --color-action-active: var(--action-primary-active);
+  --color-brand: var(--action-brand-bg);
+  --color-brand-fg: var(--action-brand-fg);
+  --color-brand-hover: var(--action-brand-hover);
+  --color-trustlink-wash: var(--trustlink-wash);
+  --color-action-secondary: var(--action-secondary-bg);
+  --color-action-secondary-fg: var(--action-secondary-fg);
+  --color-danger: var(--action-destructive-bg);
+  --color-danger-fg: var(--action-destructive-fg);
+
+  --color-success-bg: var(--status-success-bg);
+  --color-success-fg: var(--status-success-fg);
+  --color-success-line: var(--status-success-border);
+  --color-attention-bg: var(--status-attention-bg);
+  --color-attention-fg: var(--status-attention-fg);
+  --color-attention-line: var(--status-attention-border);
+  --color-error-bg: var(--status-error-bg);
+  --color-error-fg: var(--status-error-fg);
+  --color-error-line: var(--status-error-border);
+  --color-info-bg: var(--status-info-bg);
+  --color-info-fg: var(--status-info-fg);
+  --color-info-line: var(--status-info-border);
+  --color-neutral-bg: var(--status-neutral-bg);
+  --color-neutral-fg: var(--status-neutral-fg);
+  --color-neutral-line: var(--status-neutral-border);
+
+  --color-propid: var(--propid-accent);
+  --color-propid-surface: var(--propid-surface);
+  --color-propid-surface-fg: var(--propid-surface-fg);
+  --color-brand-accent: var(--brand-accent);
+  --color-learn-accent: var(--learn-accent);
+
+  --shadow-elev-1: var(--elev-1);
+  --shadow-elev-2: var(--elev-2);
+  --shadow-elev-3: var(--elev-3);
+  --shadow-elev-hover: var(--elev-hover);
+  /* Solid fills combine the inset sheen with a contact shadow. Composed as a
+     single token because two `shadow-*` utilities on one element collide. */
+  --shadow-control: var(--sheen), var(--elev-1);
+
+  --font-sans: var(--font-inter), ui-sans-serif, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas,
+    monospace;
+}
+
+/* ---------------------------------------------------------------------------
+   BASE
+   ------------------------------------------------------------------------ */
+@layer base {
+  * {
+    @apply border-line-subtle;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+    /* Inter is a variable font with an optical-size axis; letting the browser
+       drive it improves large display settings noticeably. */
+    font-optical-sizing: auto;
+  }
+
+  body {
+    @apply bg-surface-page text-fg;
+    font-size: var(--text-body);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Headings inherit tighter tracking automatically at large sizes. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Focus is non-negotiable — design-system.md §8, WCAG 2.4.7. */
+  :focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Sticky chrome must never obscure a focused element — WCAG 2.4.11 */
+  :root {
+    scroll-padding-top: calc(var(--header-h) + 1.5rem);
+    scroll-padding-bottom: 5rem;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background: var(--color-blue-100);
+    color: var(--color-navy-900);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   UTILITIES
+   ------------------------------------------------------------------------ */
+@layer utilities {
+  /* Editorial measure for prose */
+  .measure {
+    max-width: var(--container-prose);
+  }
+
+  /* Animated underline for inline links — grows from the left on hover.
+     Cheaper and calmer than a colour flash, and it reads as craft. */
+  .link-underline {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    background-size: 100% 1px;
+    transition: background-size var(--duration-base) var(--ease-out-expo);
+  }
+  .link-underline:hover {
+    background-size: 0% 1px;
+  }
+
+  /* Very fine film grain over photography. Breaks up gradient banding and
+     stops large flat images looking digitally sterile. Kept near-invisible
+     (3% opacity) — it should be felt, not seen. */
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* Frosted panel sitting over photography */
+  .glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(20px) saturate(1.4);
+  }
+
+  /* Hairline that fades at both ends — a section divider that doesn't
+     terminate abruptly. */
+  .rule-fade {
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--border-subtle) 12%,
+      var(--border-subtle) 88%,
+      transparent
+    );
+  }
+}
+
+/* Reduced motion — design-system.md §7 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Skip link — WCAG 2.4.1 Bypass Blocks. First in tab order. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  padding-inline: 1rem;
+  font-size: var(--text-body-sm);
+  font-weight: 500;
+  color: var(--text-link);
+  box-shadow: var(--elev-2);
+}
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+}

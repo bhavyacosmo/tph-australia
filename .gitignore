@@ -1,0 +1,49 @@
+# ── Dependencies and build output ────────────────────────────────────────────
+node_modules/
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# ── Environment and secrets ──────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Editor and OS noise ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+!.vscode/extensions.json
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── Local tooling ────────────────────────────────────────────────────────────
+.claude/
+coverage/
+.turbo/
+.vercel/
+
+# ── CONFIDENTIAL — DO NOT COMMIT ─────────────────────────────────────────────
+# This repository is public. The following are the client's own confidential
+# materials and internal analysis that quotes them verbatim, and must not be
+# published:
+#
+#   · the eight client requirement PDFs (one is footer-marked "Confidential")
+#   · the client/PM meeting transcript
+#   · manager-supplied UI reference images
+#   · our internal documentation, which quotes all of the above at length
+#
+# They stay on local disk and in whatever private store the team uses. If this
+# repository is ever made private and the client agrees to it, remove the line
+# below deliberately — not by accident.
+docs/
