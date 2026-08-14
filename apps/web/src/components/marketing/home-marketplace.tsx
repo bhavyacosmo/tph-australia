@@ -51,9 +51,13 @@ export function HomeMarketplace() {
   const featured = PROFESSIONALS.filter((p) => p.verification).slice(0, 3);
 
   return (
+    /* Asymmetric padding. The hero's search card overlaps into the top of this
+       section, so the space above the headings is already partly spent; a
+       symmetrical `py-16` would push the first row of cards below the fold and
+       lose the whole point of the restructure (client review, 14 Aug 2026). */
     <section
       aria-labelledby="marketplace-heading"
-      className="bg-surface-page py-16 md:py-20 lg:py-24"
+      className="bg-surface-page pb-16 pt-8 md:pb-20 md:pt-10 lg:pb-24 lg:pt-10"
     >
       <Container>
         <div className="grid gap-12 lg:grid-cols-12 lg:gap-14">
@@ -66,7 +70,7 @@ export function HomeMarketplace() {
                 </p>
                 <h2
                   id="marketplace-heading"
-                  className="mt-3 text-h2 text-fg-heading"
+                  className="mt-2 text-h2 text-fg-heading"
                 >
                   Properties to consider
                 </h2>
@@ -84,7 +88,7 @@ export function HomeMarketplace() {
             </div>
 
             <RevealGroup
-              className="mt-8 grid gap-5 sm:grid-cols-2"
+              className="mt-6 grid gap-5 sm:grid-cols-2"
               stagger={0.07}
             >
               {forSale.map((listing, i) => (
@@ -109,28 +113,24 @@ export function HomeMarketplace() {
           {/* ================================================= professionals */}
           <div className="lg:col-span-5">
             <div className="lg:sticky lg:top-24">
-              <div className="flex flex-wrap items-end justify-between gap-4">
-                <div>
-                  <p className="text-overline uppercase text-fg-muted">
-                    Checked by us
-                  </p>
-                  <h2 className="mt-3 text-h2 text-fg-heading">
-                    Brisbane professionals
-                  </h2>
-                </div>
-                <Link
-                  href={routes.professionals()}
-                  className="group flex min-h-11 items-center gap-1.5 text-body-sm font-medium text-fg-link underline-offset-4 hover:underline"
-                >
-                  See all
-                  <ArrowRight
-                    aria-hidden="true"
-                    className="size-3.5 transition-transform duration-[var(--duration-base)] ease-[var(--ease-out-expo)] group-hover:translate-x-0.5"
-                  />
-                </Link>
+              {/*
+                No "See all" beside this heading, unlike the properties column.
+                At `lg:col-span-5` the link wrapped onto its own line, which made
+                this header block 60px taller than the one next to it and pushed
+                the professional cards below the fold — the exact content the
+                client asked to see on the first screen. It now sits under the
+                rail instead, where a "and there are more" link belongs anyway.
+              */}
+              <div>
+                <p className="text-overline uppercase text-fg-muted">
+                  Checked by us
+                </p>
+                <h2 className="mt-2 text-h2 text-fg-heading">
+                  Brisbane professionals
+                </h2>
               </div>
 
-              <RevealGroup className="mt-8 space-y-4" stagger={0.07}>
+              <RevealGroup className="mt-6 space-y-4" stagger={0.07}>
                 {featured.map((professional) => (
                   <RevealItem key={professional.id}>
                     <ProfessionalCard
@@ -142,8 +142,19 @@ export function HomeMarketplace() {
                 ))}
               </RevealGroup>
 
+              <Link
+                href={routes.professionals()}
+                className="group mt-4 flex min-h-11 items-center gap-1.5 text-body-sm font-medium text-fg-link underline-offset-4 hover:underline"
+              >
+                See all Brisbane professionals
+                <ArrowRight
+                  aria-hidden="true"
+                  className="size-3.5 transition-transform duration-[var(--duration-base)] ease-[var(--ease-out-expo)] group-hover:translate-x-0.5"
+                />
+              </Link>
+
               {/* FR-06-10…12 — stated where the question actually arises */}
-              <p className="mt-6 flex items-start gap-3 rounded-xl bg-trustlink-wash p-4 text-body-sm text-fg-secondary">
+              <p className="mt-4 flex items-start gap-3 rounded-xl bg-trustlink-wash p-4 text-body-sm text-fg-secondary">
                 <ShieldOff
                   aria-hidden="true"
                   className="mt-0.5 size-4 shrink-0 text-action"
