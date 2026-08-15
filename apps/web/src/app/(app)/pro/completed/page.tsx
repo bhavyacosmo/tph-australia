@@ -3,7 +3,6 @@
 import { CheckCircle2, FileText } from "lucide-react";
 
 import { ProShell } from "@/components/shells/pro-shell";
-import { PageShell } from "@/components/ui/page";
 import { ButtonLink } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/status-chip";
 import { useJourneyStore } from "@/lib/store/journey-store";
@@ -20,7 +19,7 @@ export default function ProCompletedPage() {
 
   return (
     <ProShell>
-      <PageShell>
+      <>
         <h1 className="text-h1 text-fg-heading">Completed</h1>
         <p className="measure mt-3 text-body-lg text-fg-secondary">
           Work you&apos;ve finished, and requests you didn&apos;t take on.
@@ -80,7 +79,7 @@ export default function ProCompletedPage() {
             Back to your work
           </ButtonLink>
         </div>
-      </PageShell>
+      </>
     </ProShell>
   );
 }

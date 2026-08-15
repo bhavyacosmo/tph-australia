@@ -268,6 +268,31 @@
     rgb(10 38 71 / 0.86) 55%,
     rgb(10 38 71 / 0.94) 100%
   );
+
+  /*
+     Homepage hero scrim — NEUTRAL, revised 15 August 2026.
+
+     The navy version above dyed the photograph blue: warm timber read as grey,
+     the trees read as teal, and the whole band looked like a graphic rather
+     than a picture. The PM asked for the blue to go.
+
+     It is replaced rather than removed. The photograph blows out to pure white
+     in the sky and window glass — measured luminance 0.997 directly behind the
+     headline — so white type on the bare image scores 1:1 contrast there, which
+     is unreadable, not merely low. Neutral black at these alphas holds the
+     sub-headline above 4.5:1 while showing the photograph's own colours: no hue
+     is added at any stop.
+
+     Lighter in the middle where the composition is darkest, heavier top and
+     bottom where the sky and the interior lights are.
+  */
+  --hero-scrim-photo: linear-gradient(
+    180deg,
+    rgb(0 0 0 / 0.66) 0%,
+    rgb(0 0 0 / 0.6) 42%,
+    rgb(0 0 0 / 0.55) 70%,
+    rgb(0 0 0 / 0.62) 100%
+  );
   /* Frosted panel over photography */
   --glass-bg: rgb(255 255 255 / 0.1);
   --glass-border: rgb(255 255 255 / 0.18);

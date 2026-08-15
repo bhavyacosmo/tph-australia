@@ -11,11 +11,21 @@
  * listings reads as a broken feed, and inventing photographs of properties that
  * do not exist would be misleading in a demo the client may show onward.
  *
- * For professionals we do NOT fabricate faces. `photoUrl` is null and the avatar
- * falls back to a monogram. The client asked for faces on the homepage
- * (transcript L255) — real headshots need to come from the five Brisbane
- * founding professionals, with their permission. Drop them in
- * /public/img/pro/<id>.jpg and set `photoUrl` in marketplace.ts.
+ * ── Professional portraits ───────────────────────────────────────────────────
+ * ⚠️ The five portraits in /public/img/pro/ are STYLEGAN2-GENERATED. Nobody in
+ * them exists, and that is the point: putting a real person's face beside an
+ * invented business name — on a demo the client may show onward — implies an
+ * endorsement that person never gave. Stock photography of real models would
+ * have the same problem.
+ *
+ * They are placeholders for the client's own asset, not the asset. Replace them
+ * with the founding professionals' real headshots, with permission, before
+ * anything ships. The filenames are the professional ids, so replacing them is
+ * a file swap with no code change.
+ *
+ * The two businesses with no named contact keep `photoUrl: null` and fall back
+ * to a monogram — a face on a listing that names no individual would be
+ * inventing a person as well as a picture.
  *
  * To add real listing photography: put files in /public/img/listings/ and add
  * them to LISTING_IMAGES below.

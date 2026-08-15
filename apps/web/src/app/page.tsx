@@ -1,11 +1,7 @@
-import { ArrowRight } from "lucide-react";
-
 import { PublicShell } from "@/components/shells/public-shell";
-import { ButtonLink } from "@/components/ui/button";
-import { Container } from "@/components/ui/section";
-import { Reveal } from "@/components/motion/reveal";
 
 import { SearchHero } from "@/components/marketing/search-hero";
+import { JourneyCallout } from "@/components/marketing/journey-callout";
 import { HomeMarketplace } from "@/components/marketing/home-marketplace";
 import { FourTools } from "@/components/marketing/four-tools";
 import { ActGatherCompare } from "@/components/marketing/story/act-gather-compare";
@@ -65,47 +61,50 @@ export default function LandingPage() {
       {/* 6 · Continues — Progress Map, eight milestones */}
       <ActContinue />
 
-      {/* 7 · Close — typographic, deliberately empty after a dense page */}
-      <section className="relative isolate overflow-hidden bg-navy-900">
-        <div aria-hidden="true" className="grain absolute inset-0" />
-        <Container className="relative py-24 md:py-32 lg:py-40">
-          <Reveal>
-            <div className="max-w-4xl">
-              <p className="text-[clamp(2.5rem,7vw,5.5rem)] font-bold leading-[0.98] tracking-[-0.035em] text-white">
-                Your journey.
-                <br />
-                Your record.
-                <br />
-                <span className="text-green-400">Yours to control.</span>
-              </p>
+      {/*
+        7 · Close — one typographic statement per audience.
 
-              <div className="rule-fade my-12 opacity-40" />
+        Navy for the buyer, green for the seller, light for the professional:
+        each panel is the colour of the surface that person actually works on,
+        so the three read as one system. Added on client instruction,
+        15 August 2026; the buyer panel is the original close, unchanged in
+        wording and destination.
+      */}
+      <JourneyCallout
+        tone="navy"
+        lines={["Your journey.", "Your record."]}
+        accentLine="Yours to control."
+        cta="Start buyer journey"
+        href="/journey/start"
+        note="Free to start. Brisbane City Council area, buying journey."
+      />
 
-              <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-                {/*
-                  Secondary variant — the hero carries the one filled primary
-                  for this screen ([VB] p.16 principle 2).
-                */}
-                <ButtonLink
-                  href="/journey/start"
-                  variant="secondary"
-                  size="lg"
-                  className="group"
-                >
-                  Start buyer journey
-                  <ArrowRight
-                    aria-hidden="true"
-                    className="size-4 transition-transform duration-[var(--duration-base)] ease-[var(--ease-out-expo)] group-hover:translate-x-0.5"
-                  />
-                </ButtonLink>
-                <p className="text-body-sm text-white/60">
-                  Free to start. Brisbane City Council area, buying journey.
-                </p>
-              </div>
-            </div>
-          </Reveal>
-        </Container>
-      </section>
+      <JourneyCallout
+        tone="green"
+        lines={["Your property.", "Your price."]}
+        accentLine="Your call."
+        cta="List your property"
+        href="/sign-in?role=seller"
+        note="Free to list. You decide how a buyer is able to reach you."
+      />
+
+      {/*
+        The professional's claim is the one the product can actually keep: a
+        request arrives with a purpose and a suburb, and nothing else reaches
+        them until they accept it (FR-08-07). No promise here about fees or
+        lead volume — neither is defined.
+      */}
+      <JourneyCallout
+        tone="light"
+        lines={["No cold leads.", "No guessing."]}
+        /* Seventeen characters, the same as "Yours to control." — anything
+           longer wraps to a second line at 88px and breaks the three-line
+           rhythm the other two panels set. */
+        accentLine="You accept first."
+        cta="Join as a professional"
+        href="/sign-in?role=professional"
+        note="Buyers come to you through a Trust Link, on terms they set."
+      />
     </PublicShell>
   );
 }

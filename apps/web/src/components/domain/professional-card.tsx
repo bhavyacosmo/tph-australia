@@ -66,6 +66,67 @@ export function VerificationBadge({
   );
 }
 
+/**
+ * A portrait panel — half the card, full height.
+ *
+ * ⚠️ The portraits are STYLEGAN-GENERATED. Nobody in them exists. That is a
+ * deliberate choice over stock photography: putting a real person's face beside
+ * an invented business name, on a demo the client may show onward, implies an
+ * endorsement that person never gave. Swap them for the founding professionals'
+ * own headshots — with permission — before anything ships.
+ *
+ * `scale-[1.18] origin-top` is load-bearing, not decoration: the generator
+ * stamps "StyleGAN2 (Karras et al.)" into the bottom-right corner, and scaling
+ * up from the top pushes that corner out of frame. It also crops to the upper
+ * portion, which is where a face wants to sit in a tall panel.
+ */
+export function ProfessionalPortrait({
+  professional,
+  className,
+}: {
+  professional: Professional;
+  className?: string;
+}) {
+  if (professional.photoUrl) {
+    return (
+      <div
+        className={cn(
+          "relative shrink-0 overflow-hidden bg-surface-sunken",
+          className,
+        )}
+      >
+        <Image
+          src={professional.photoUrl}
+          alt=""
+          aria-hidden="true"
+          fill
+          /* The panel is ~217px wide, but `object-cover` on a taller box scales
+             by HEIGHT and the 1.18 crop scales again — so the intrinsic width
+             actually needed is ~340px, not the panel width. Understating this
+             is what makes a portrait look soft. */
+          sizes="(max-width: 640px) 50vw, 340px"
+          className="scale-[1.18] object-cover object-top origin-top"
+        />
+      </div>
+    );
+  }
+
+  /* No photograph: the initials at panel scale, on the brand navy. */
+  return (
+    <div
+      aria-hidden="true"
+      className={cn(
+        "grid shrink-0 place-items-center bg-brand text-brand-fg",
+        className,
+      )}
+    >
+      <span className="text-h2 font-bold tracking-tight">
+        {monogram(professional.contactName ?? professional.name)}
+      </span>
+    </div>
+  );
+}
+
 /** Photo where one exists; a monogram where one does not. Never a fake face. */
 export function ProfessionalAvatar({
   professional,
@@ -113,11 +174,75 @@ export function ProfessionalCard({
 }: {
   professional: Professional;
   href?: string;
-  /** `compact` is the homepage rail; `full` is the directory */
-  variant?: "full" | "compact";
+  /**
+   * `split`   — homepage rail: portrait one half, details the other
+   * `compact` — a tight row with a round avatar
+   * `full`    — the directory, with approach and fee
+   */
+  variant?: "full" | "compact" | "split";
   action?: React.ReactNode;
   className?: string;
 }) {
+  /* ------------------------------------------------------------ split card */
+  if (variant === "split") {
+    const inner = (
+      <>
+        <ProfessionalPortrait
+          professional={professional}
+          /* Two real halves at every width. The portrait keeps a portrait
+             aspect on a phone so the face is never squashed into a letterbox. */
+          className="w-2/5 self-stretch min-h-40"
+        />
+        <div className="flex min-w-0 flex-1 flex-col justify-center p-5">
+          <p className="text-overline uppercase text-fg-muted">
+            {professional.category}
+          </p>
+          <p className="mt-1.5 text-body-lg font-semibold text-fg-heading">
+            {professional.name}
+          </p>
+          {professional.contactName && (
+            <p className="text-body-sm text-fg-secondary">
+              {professional.contactName}
+            </p>
+          )}
+          <p className="mt-2 flex items-center gap-1.5 text-body-sm text-fg-muted">
+            <MapPin aria-hidden="true" className="size-3.5 shrink-0" />
+            {professional.area}
+          </p>
+
+          <div className="mt-3.5">
+            <VerificationBadge professional={professional} />
+          </div>
+
+          {href && (
+            <span className="mt-3.5 flex items-center gap-1.5 text-body-sm font-medium text-fg-link">
+              Read the profile
+              <ArrowRight
+                aria-hidden="true"
+                className="size-3.5 transition-transform duration-[var(--duration-base)] ease-[var(--ease-out-expo)] group-hover/pro:translate-x-0.5"
+              />
+            </span>
+          )}
+        </div>
+      </>
+    );
+
+    const splitShell = cn(
+      "group/pro flex overflow-hidden rounded-2xl border border-line-subtle bg-surface-card",
+      "transition-[border-color,box-shadow,transform] duration-[var(--duration-base)] ease-[var(--ease-out-expo)]",
+      href && "hover:-translate-y-0.5 hover:border-line hover:shadow-elev-2",
+      className,
+    );
+
+    return href ? (
+      <Link href={href} className={splitShell}>
+        {inner}
+      </Link>
+    ) : (
+      <article className={splitShell}>{inner}</article>
+    );
+  }
+
   const body = (
     <>
       <div className="flex items-start gap-4">

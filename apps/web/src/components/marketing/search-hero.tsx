@@ -70,10 +70,17 @@ export function SearchHero() {
           sizes="100vw"
           className="object-cover object-center"
         />
+        {/*
+          Neutral, not navy (client review, 15 August 2026). The photograph now
+          shows its own colours instead of being dyed blue. It is not removed
+          altogether: the sky and window glass in this shot reach pure white, so
+          white type on the bare image measures 1:1 contrast — see the token
+          definition in globals.css for the numbers.
+        */}
         <div
           aria-hidden="true"
           className="absolute inset-0"
-          style={{ background: "var(--hero-scrim-v)" }}
+          style={{ background: "var(--hero-scrim-photo)" }}
         />
         <div aria-hidden="true" className="grain absolute inset-0" />
 
@@ -88,7 +95,9 @@ export function SearchHero() {
               initial={reduce ? undefined : { opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="text-overline uppercase text-white/55"
+              /* /85, not /55. The old value was tuned to sit gently on a scrim
+                 at 0.92 navy; on the lighter neutral one it fell to 3.2:1. */
+              className="text-overline uppercase text-white/85"
             >
               Brisbane · buying
             </motion.p>
@@ -109,7 +118,8 @@ export function SearchHero() {
               initial={reduce ? undefined : { opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
-              className="mx-auto mt-3 max-w-2xl text-body-lg text-white/75"
+              /* /90 for the same reason as the eyebrow — see above. */
+              className="mx-auto mt-3 max-w-2xl text-body-lg text-white/90"
             >
               Search properties, keep every note and decision in one place, and
               bring in a checked professional only when you say so.

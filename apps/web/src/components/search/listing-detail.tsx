@@ -19,13 +19,14 @@ import {
 
 import { PublicShell } from "@/components/shells/public-shell";
 import { Container } from "@/components/ui/section";
+import { EmptyState } from "@/components/ui/page";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { RailPanel } from "@/components/ui/page";
 import { ListingImage } from "@/components/domain/listing-image";
+import { SellerContact } from "@/components/search/seller-contact";
 import { useJourneyStore } from "@/lib/store/journey-store";
 import { SHORTLIST_LIMIT } from "@/lib/mock/seed";
 import { routes } from "@/lib/routes";
-import type { Listing } from "@/lib/mock/types";
 
 /**
  * Listing detail.
@@ -34,25 +35,59 @@ import type { Listing } from "@/lib/mock/types";
  * client described (transcript L113). Saving turns the listing into the user's
  * own record, which then appears in the shortlist, the comparison and Prop ID.
  *
- * What this page deliberately does NOT have, and it is the difference between
- * this and a portal: no agent block, no enquiry form, no "contact agent"
- * button, no auction countdown. TPH does not represent sellers, and an enquiry
- * form here would send a stranger the user's details — the exact opposite of
- * the product's promise.
+ * ── Contacting the seller ────────────────────────────────────────────────────
+ * This page used to have no enquiry route at all, on the grounds that TPH does
+ * not represent sellers and an enquiry form would hand a stranger the user's
+ * details. The seller role changes the first half of that, not the second: where
+ * a real seller owns the listing, the buyer may now contact them — through a
+ * panel where **sharing a phone number is off by default and the buyer's
+ * surname is never sent**. Seeded stock with no seller behind it keeps the
+ * original "no enquiry is sent" statement, because for those there is genuinely
+ * nobody to enquire to.
+ *
+ * There is still no agent block, no "days on market" and no auction countdown.
+ *
+ * The listing is resolved from the STORE rather than the seed module, because a
+ * seller may have created it minutes ago and it exists only in this browser.
  */
-export function ListingDetail({ listing }: { listing: Listing }) {
+export function ListingDetail({ listingId }: { listingId: string }) {
   const router = useRouter();
   const reduce = useReducedMotion();
-  const { saveListing, savedListingIds, activeProperties, journey, session } =
-    useJourneyStore();
+  const {
+    saveListing,
+    savedListingIds,
+    activeProperties,
+    journey,
+    session,
+    getListing,
+  } = useJourneyStore();
 
   const [state, setState] = useState<
     { kind: "idle" } | { kind: "saved"; id: string } | { kind: "limit" }
-  >(
-    savedListingIds.includes(listing.id) ? { kind: "idle" } : { kind: "idle" },
-  );
+  >({ kind: "idle" });
+
+  const listing = getListing(listingId);
+
+  if (!listing) {
+    return (
+      <PublicShell>
+        <Container className="py-20">
+          <EmptyState
+            title="We couldn't find that property"
+            body="It may have been withdrawn by the seller, or the link may be out of date."
+            action={
+              <ButtonLink href={routes.search()} variant="primary" size="md">
+                Back to search
+              </ButtonLink>
+            }
+          />
+        </Container>
+      </PublicShell>
+    );
+  }
 
   const alreadySaved = savedListingIds.includes(listing.id);
+  const withdrawn = (listing.status ?? "published") !== "published";
 
   const save = () => {
     /* Saving is the moment a browser becomes a user — sign in first, then come
@@ -116,6 +151,20 @@ export function ListingDetail({ listing }: { listing: Listing }) {
       </div>
 
       <Container className="py-10 md:py-14">
+        {/* A withdrawn listing keeps its URL — a buyer who saved the link must
+            be told what happened, not shown a 404 or a live-looking page. */}
+        {withdrawn && (
+          <p
+            role="status"
+            className="mb-8 flex items-start gap-3 rounded-xl border border-attention-line bg-attention-bg px-4 py-3.5 text-body-sm text-attention-fg"
+          >
+            <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            This property is no longer on the market. You can still see what you
+            recorded about it, and it stays in your own properties if you saved
+            it.
+          </p>
+        )}
+
         <div className="grid gap-10 lg:grid-cols-12 lg:gap-14">
           {/* ------------------------------------------------------- detail */}
           <div className="min-w-0 lg:col-span-7">
@@ -163,6 +212,47 @@ export function ListingDetail({ listing }: { listing: Listing }) {
                 ))}
               </ul>
             </section>
+
+            {/* Seller-supplied. Absent on the seeded stock, so the sections
+                only appear where someone actually filled them in. */}
+            {(listing.utilities?.length ?? 0) > 0 && (
+              <section aria-labelledby="services-heading" className="mt-10">
+                <h2 id="services-heading" className="text-h4 text-fg-heading">
+                  Services and connections
+                </h2>
+                <ul className="mt-4 flex flex-wrap gap-2">
+                  {listing.utilities?.map((item) => (
+                    <li
+                      key={item}
+                      className="rounded-full bg-surface-sunken px-3 py-1.5 text-body-sm text-fg-secondary"
+                    >
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-caption text-fg-muted">
+                  Stated by the seller. Not checked by The Property Helpline.
+                </p>
+              </section>
+            )}
+
+            {(listing.nearby?.length ?? 0) > 0 && (
+              <section aria-labelledby="nearby-heading" className="mt-10">
+                <h2 id="nearby-heading" className="text-h4 text-fg-heading">
+                  What&apos;s nearby
+                </h2>
+                <ul className="mt-4 flex flex-wrap gap-2">
+                  {listing.nearby?.map((item) => (
+                    <li
+                      key={item}
+                      className="rounded-full bg-surface-sunken px-3 py-1.5 text-body-sm text-fg-secondary"
+                    >
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
 
             {listing.inspectionNote && (
               <section aria-labelledby="inspection-heading" className="mt-10">
@@ -280,22 +370,29 @@ export function ListingDetail({ listing }: { listing: Listing }) {
                 )}
               </RailPanel>
 
-              <RailPanel tone="wash">
-                <p className="flex items-start gap-3 text-body-sm text-fg-secondary">
-                  <ShieldCheck
-                    aria-hidden="true"
-                    className="mt-0.5 size-4 shrink-0 text-action"
-                  />
-                  <span>
-                    <span className="block font-medium text-fg-heading">
-                      No enquiry is sent
+              {/* Where a seller owns the listing, the buyer may contact them —
+                  on the buyer's terms. Where nobody owns it, the original
+                  statement stands, because there is nobody to enquire to. */}
+              {listing.sellerId ? (
+                <SellerContact listing={listing} />
+              ) : (
+                <RailPanel tone="wash">
+                  <p className="flex items-start gap-3 text-body-sm text-fg-secondary">
+                    <ShieldCheck
+                      aria-hidden="true"
+                      className="mt-0.5 size-4 shrink-0 text-action"
+                    />
+                    <span>
+                      <span className="block font-medium text-fg-heading">
+                        No enquiry is sent
+                      </span>
+                      There is no seller behind this demonstration listing.
+                      Saving a property tells nobody, and your details stay yours
+                      until you authorise a Trust Link.
                     </span>
-                    There is no agent contact form here. Saving a property tells
-                    nobody, and your details stay yours until you authorise a
-                    Trust Link.
-                  </span>
-                </p>
-              </RailPanel>
+                  </p>
+                </RailPanel>
+              )}
 
               <RailPanel title="Thinking about an inspection?">
                 <p className="text-body-sm text-fg-secondary">

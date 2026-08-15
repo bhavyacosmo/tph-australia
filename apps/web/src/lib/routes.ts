@@ -36,9 +36,31 @@ export const routes = {
   trustLinkNew: () => "/trustlink/new",
   trustLink: (id: string) => `/trustlink/${id}`,
   pro: () => "/pro",
+  proRequests: () => "/pro/requests",
   proRequest: (id: string) => `/pro/requests/${id}`,
+  proConnections: () => "/pro/connections",
   proConnection: (id: string) => `/pro/connections/${id}`,
+  proTasks: () => "/pro/tasks",
+  proOutputs: () => "/pro/outputs",
+  proServices: () => "/pro/services",
+  proProfile: () => "/pro/profile",
+
+  /* Seller — added August 2026 with the four-role platform */
+  seller: () => "/seller",
+  sellerProperties: () => "/seller/properties",
+  sellerList: () => "/seller/list",
+  sellerInterest: () => "/seller/interest",
+  sellerActivity: () => "/seller/activity",
+  sellerProfile: () => "/seller/profile",
+
   admin: () => "/admin",
+  adminUsers: () => "/admin/users",
+  adminProfessionals: () => "/admin/professionals",
+  adminVerification: () => "/admin/verification",
+  adminProperties: () => "/admin/properties",
+  adminTrustLinks: () => "/admin/trust-links",
+  adminActivity: () => "/admin/activity",
+  adminSettings: () => "/admin/settings",
 
   propId: () => "/prop-id",
   propIdJourneys: () => "/prop-id/journeys",
@@ -71,7 +93,9 @@ const BUILT: readonly string[] = [
   "/professionals",
   "/trustlink",
   "/pro",
+  "/seller",
   "/admin",
+  "/sign-in",
 ];
 
 const NOT_BUILT: readonly string[] = ["/journey/*/trust-link"];

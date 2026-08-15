@@ -4,7 +4,6 @@ import Link from "next/link";
 import { ArrowRight, Link2 } from "lucide-react";
 
 import { ProShell } from "@/components/shells/pro-shell";
-import { PageShell } from "@/components/ui/page";
 import { StatusChip } from "@/components/ui/status-chip";
 import { ButtonLink } from "@/components/ui/button";
 import { useJourneyStore } from "@/lib/store/journey-store";
@@ -21,7 +20,7 @@ export default function ProConnectionsPage() {
 
   return (
     <ProShell>
-      <PageShell>
+      <>
         <h1 className="text-h1 text-fg-heading">Active connections</h1>
         <p className="measure mt-3 text-body-lg text-fg-secondary">
           Each one is bounded — you see only what the buyer chose, for only as
@@ -75,7 +74,7 @@ export default function ProConnectionsPage() {
             Back to your work
           </ButtonLink>
         </div>
-      </PageShell>
+      </>
     </ProShell>
   );
 }

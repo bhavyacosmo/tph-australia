@@ -309,9 +309,10 @@ export function ApplicationReview() {
 
       <p className="mt-6 flex items-start gap-2.5 text-body-sm text-fg-muted">
         <Info aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
-        A verified application does not create a live profile in this prototype —
-        the professional cohort is seeded data. The record of what was checked is
-        real, and that is the part PRO-05 governs.
+        Recording a check publishes the profile. The professional appears in the
+        directory and on the homepage immediately, with the wording you chose and
+        today&apos;s date — never their own claim (PRO-05). An account record is
+        created for them at the same time.
       </p>
     </section>
   );

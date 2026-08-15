@@ -3,66 +3,161 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
+  Briefcase,
   Check,
   Eye,
   EyeOff,
+  Home,
+  KeyRound,
   Lock,
+  Mail,
+  MessageSquare,
   Phone,
   ShieldCheck,
+  Store,
 } from "lucide-react";
 
 import { TphLogo } from "@/components/brand/tph-logo";
 import { Button } from "@/components/ui/button";
-import { DEMO_ACCOUNTS, HOME_FOR, ROLE_LABEL } from "@/lib/mock/accounts";
+import {
+  accountForRole,
+  generateOtp,
+  HOME_FOR,
+  normalisePhone,
+  ROLE_BLURB,
+  ROLE_LABEL,
+} from "@/lib/mock/accounts";
 import { useJourneyStore } from "@/lib/store/journey-store";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/lib/mock/types";
 
 /**
- * Sign in.
+ * Sign in — four roles, mock one-time code.
  *
- * ⚠️ MOCK AUTHENTICATION. Credentials are checked in the browser against
- * constants and the session is a localStorage object. See
- * src/lib/mock/accounts.ts for the full list of what must replace this.
+ * ⚠️ MOCK AUTHENTICATION. The code is generated in this browser and printed on
+ * the screen, because there is no SMS provider. The panel that shows it says so
+ * in plain words rather than pretending a message was sent. Everything else —
+ * the account lookup, the admin password, the session — is constants and
+ * localStorage. See src/lib/mock/accounts.ts for what must replace it.
  *
- * Composition: a two-panel split — the left is the brand and the architecture
- * photograph already used across the product, the right is the form on a clean
- * surface. On a phone the panel collapses to a slim branded header so the form
- * is above the fold and the keyboard doesn't push it out of view.
+ * Three steps, not one screen of fields:
  *
- * The demo-account block is styled as part of the product (a quiet card with the
- * three roles) rather than a developer panel, because the client will see it.
+ *   1. WHO — the four roles as real cards. The client's ask was "the website
+ *      should provide four role options", and a role chooser is also the only
+ *      honest way to present a demo where the reviewer picks an identity.
+ *   2. IDENTIFIER — phone for the consumer roles, email for admin.
+ *   3. PROOF — the six-digit code, or the admin password.
+ *
+ * The composition (photographic brand panel left, form right) is unchanged from
+ * the previous single-step version, so the screen still belongs to the product.
  */
-export function SignIn({ next }: { next?: string }) {
+
+const ROLE_ICON: Record<Role, typeof Home> = {
+  buyer: Home,
+  seller: Store,
+  professional: Briefcase,
+  admin: ShieldCheck,
+};
+
+const ROLES: Role[] = ["buyer", "seller", "professional", "admin"];
+
+type Step = "role" | "identify" | "verify";
+
+export function SignIn({
+  next,
+  /** Arrives from `?role=` — the homepage panels link straight to a role. */
+  initialRole,
+}: {
+  next?: string;
+  initialRole?: Role;
+}) {
   const router = useRouter();
   const reduce = useReducedMotion();
   const { signIn } = useJourneyStore();
 
-  const [phone, setPhone] = useState("");
+  const [step, setStep] = useState<Step>(initialRole ? "identify" : "role");
+  const [role, setRole] = useState<Role | null>(initialRole ?? null);
+  const [identifier, setIdentifier] = useState(() => {
+    if (!initialRole) return "";
+    const demo = accountForRole(initialRole);
+    return demo.method === "password" ? (demo.email ?? "") : demo.phone;
+  });
+  const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [sentCode, setSentCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [filled, setFilled] = useState<Role | null>(null);
 
-  const submit = () => {
+  const account = role ? accountForRole(role) : null;
+  const usesPassword = account?.method === "password";
+
+  /* Focus the field the step just revealed, so the keyboard follows the flow. */
+  const identifierRef = useRef<HTMLInputElement>(null);
+  const proofRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (step === "identify") identifierRef.current?.focus();
+    if (step === "verify") proofRef.current?.focus();
+  }, [step]);
+
+  const chooseRole = (picked: Role) => {
+    const demo = accountForRole(picked);
+    setRole(picked);
+    /* Prefilled, because this is a demonstration and asking a reviewer to
+       memorise four phone numbers helps nobody. It stays editable. */
+    setIdentifier(demo.method === "password" ? (demo.email ?? "") : demo.phone);
+    setCode("");
+    setPassword("");
+    setSentCode(null);
+    setError(null);
+    setStep("identify");
+  };
+
+  const sendCode = () => {
     setError(null);
 
-    if (!phone.trim() || !password) {
-      setError("Enter your phone number and password.");
+    if (!identifier.trim()) {
+      setError(
+        usesPassword ? "Enter your admin email." : "Enter your mobile number.",
+      );
+      return;
+    }
+    if (!usesPassword && normalisePhone(identifier).length < 8) {
+      setError("That doesn't look like an Australian mobile number.");
       return;
     }
 
     setPending(true);
-    /* A short beat so the transition reads as a sign-in rather than a jump. */
+    /* A beat, so sending reads as a request rather than an instant reveal. */
     window.setTimeout(() => {
-      const result = signIn(phone, password);
+      if (!usesPassword) setSentCode(generateOtp());
+      setPending(false);
+      setStep("verify");
+    }, 600);
+  };
+
+  const verify = () => {
+    setError(null);
+
+    if (usesPassword) {
+      if (password !== account?.password) {
+        setError("Those details don't match an account.");
+        return;
+      }
+    } else if (code.replace(/\D/g, "") !== sentCode) {
+      setError("That code doesn't match. Check the code above and try again.");
+      return;
+    }
+
+    setPending(true);
+    window.setTimeout(() => {
+      const result = signIn(identifier);
       if (!result.ok) {
         setError(result.message);
         setPending(false);
@@ -72,13 +167,16 @@ export function SignIn({ next }: { next?: string }) {
     }, 550);
   };
 
-  const useDemo = (role: Role) => {
-    const account = DEMO_ACCOUNTS.find((a) => a.role === role);
-    if (!account) return;
-    setPhone(account.phone);
-    setPassword(account.password);
-    setFilled(role);
+  const back = () => {
     setError(null);
+    if (step === "verify") {
+      setStep("identify");
+      setCode("");
+      setPassword("");
+      return;
+    }
+    setStep("role");
+    setRole(null);
   };
 
   return (
@@ -119,7 +217,6 @@ export function SignIn({ next }: { next?: string }) {
             </Link>
           </motion.div>
 
-          {/* The statement. Hidden on small screens so the form leads. */}
           <div className="mt-auto hidden lg:block">
             <motion.p
               initial={reduce ? undefined : { opacity: 0, y: 16 }}
@@ -127,7 +224,7 @@ export function SignIn({ next }: { next?: string }) {
               transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
               className="max-w-lg text-h1 text-white"
             >
-              Your property journey, in one place you control.
+              One platform. Four ways to use it.
             </motion.p>
 
             <motion.ul
@@ -137,9 +234,9 @@ export function SignIn({ next }: { next?: string }) {
               className="mt-10 space-y-4 border-t border-white/12 pt-8"
             >
               {[
-                "Every property, note and decision kept together.",
-                "Nothing shared with a professional until you authorise it.",
-                "Come back whenever — it waits exactly where you left it.",
+                "Buyers search, save, compare and hire — in one record they control.",
+                "Sellers list a property and see who is genuinely interested.",
+                "Professionals take work only when a buyer authorises it.",
               ].map((line, i) => (
                 <motion.li
                   key={line}
@@ -172,242 +269,396 @@ export function SignIn({ next }: { next?: string }) {
           transition={{ duration: 0.55, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
           className="w-full max-w-md"
         >
-          <Link
-            href="/"
-            className="inline-flex min-h-11 items-center gap-2 text-body-sm text-fg-secondary underline-offset-4 hover:text-fg hover:underline"
-          >
-            <ArrowLeft aria-hidden="true" className="size-4" />
-            Back to the homepage
-          </Link>
-
-          <h1 className="mt-6 text-h1 text-fg-heading">Sign in</h1>
-          <p className="mt-3 text-body-lg text-fg-secondary">
-            Pick up wherever you left off.
-          </p>
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              submit();
-            }}
-            className="mt-9 space-y-5"
-          >
-            {/* ------------------------------------------------------ phone */}
-            <div>
-              <label
-                htmlFor="phone"
-                className="text-body-sm font-medium text-fg-heading"
-              >
-                Phone number
-              </label>
-              <div className="relative mt-2">
-                <Phone
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-fg-muted"
-                />
-                <input
-                  id="phone"
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  value={phone}
-                  onChange={(e) => {
-                    setPhone(e.target.value);
-                    setFilled(null);
-                  }}
-                  aria-invalid={Boolean(error) || undefined}
-                  placeholder="0400 000 000"
-                  className={cn(
-                    "h-12 w-full rounded-md border border-line bg-surface-card pl-10 pr-3.5 text-body text-fg",
-                    "placeholder:text-fg-muted",
-                    "transition-[border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out-expo)]",
-                    "hover:border-line-strong",
-                    "aria-[invalid=true]:border-danger",
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* --------------------------------------------------- password */}
-            <div>
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <label
-                  htmlFor="password"
-                  className="text-body-sm font-medium text-fg-heading"
-                >
-                  Password
-                </label>
-                {/* Visual only in this prototype, and it says so on click */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setError(
-                      "Password recovery isn't part of this prototype. Use a demo account below.",
-                    )
-                  }
-                  className="min-h-6 text-body-sm text-fg-link underline-offset-4 hover:underline"
-                >
-                  Forgot password?
-                </button>
-              </div>
-
-              <div className="relative mt-2">
-                <Lock
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-fg-muted"
-                />
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setFilled(null);
-                  }}
-                  aria-invalid={Boolean(error) || undefined}
-                  placeholder="Your password"
-                  className={cn(
-                    "h-12 w-full rounded-md border border-line bg-surface-card pl-10 pr-12 text-body text-fg",
-                    "placeholder:text-fg-muted",
-                    "transition-[border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out-expo)]",
-                    "hover:border-line-strong",
-                    "aria-[invalid=true]:border-danger",
-                  )}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  aria-pressed={showPassword}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  /* 44px, not 40 — it sits inside a 48px field and is used on
-                     touch, so it has to meet the same floor as any other
-                     control (RSP-05). */
-                  className="absolute right-0.5 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-md text-fg-muted transition-colors duration-[var(--duration-fast)] hover:bg-surface-sunken hover:text-fg"
-                >
-                  {showPassword ? (
-                    <EyeOff aria-hidden="true" className="size-4" />
-                  ) : (
-                    <Eye aria-hidden="true" className="size-4" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <AnimatePresence>
-              {error && (
-                <motion.p
-                  key={error}
-                  role="alert"
-                  initial={reduce ? undefined : { opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={reduce ? undefined : { opacity: 0 }}
-                  transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-                  className="flex items-start gap-2 rounded-md border border-error-line bg-error-bg px-3.5 py-3 text-body-sm text-error-fg"
-                >
-                  <AlertCircle
-                    aria-hidden="true"
-                    className="mt-0.5 size-4 shrink-0"
-                  />
-                  {error}
-                </motion.p>
-              )}
-            </AnimatePresence>
-
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              fullWidth
-              loading={pending}
-              className="group"
+          {step === "role" ? (
+            <Link
+              href="/"
+              className="inline-flex min-h-11 items-center gap-2 text-body-sm text-fg-secondary underline-offset-4 hover:text-fg hover:underline"
             >
-              Sign in
-              <ArrowRight
-                aria-hidden="true"
-                className="size-4 transition-transform duration-[var(--duration-base)] ease-[var(--ease-out-expo)] group-hover:translate-x-0.5"
-              />
-            </Button>
-          </form>
-
-          {/* ==================================================== demo access */}
-          <section
-            aria-labelledby="demo-heading"
-            className="mt-10 rounded-2xl border border-line-subtle bg-surface-card p-5"
-          >
-            <h2
-              id="demo-heading"
-              className="text-body-sm font-semibold text-fg-heading"
+              <ArrowLeft aria-hidden="true" className="size-4" />
+              Back to the homepage
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={back}
+              className="inline-flex min-h-11 items-center gap-2 rounded-md text-body-sm text-fg-secondary underline-offset-4 hover:text-fg hover:underline"
             >
-              Demo access
-            </h2>
-            <p className="mt-1.5 text-body-sm text-fg-muted">
-              Three example accounts, one for each experience. Choosing one fills
-              the form — then sign in.
-            </p>
+              <ArrowLeft aria-hidden="true" className="size-4" />
+              {step === "verify" ? "Change number" : "Choose a different role"}
+            </button>
+          )}
 
-            <ul className="mt-4 space-y-2">
-              {DEMO_ACCOUNTS.map((account) => {
-                const active = filled === account.role;
-                return (
-                  <li key={account.role}>
-                    <button
-                      type="button"
-                      onClick={() => useDemo(account.role)}
-                      className={cn(
-                        "group flex w-full items-center gap-3.5 rounded-xl border p-3.5 text-left",
-                        "transition-[border-color,background-color] duration-[var(--duration-fast)] ease-[var(--ease-out-expo)]",
-                        active
-                          ? "border-action bg-trustlink-wash"
-                          : "border-line-subtle bg-surface-page hover:border-line",
-                      )}
+          <Steps step={step} />
+
+          {/* The whole panel is keyed on the step so it mounts and rises in.
+              No AnimatePresence wrapper: a throttled exit frame would leave the
+              form blank, which this codebase has already had to fix once. */}
+          <motion.div
+            key={step}
+            initial={reduce ? undefined : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {/* ================================================ 1 · who */}
+            {step === "role" && (
+              <>
+                <h1 className="mt-6 text-h1 text-fg-heading">Sign in</h1>
+                <p className="mt-3 text-body-lg text-fg-secondary">
+                  Choose how you use The Property Helpline.
+                </p>
+
+                <ul className="mt-8 space-y-3">
+                  {ROLES.map((r, i) => {
+                    const Icon = ROLE_ICON[r];
+                    return (
+                      <motion.li
+                        key={r}
+                        initial={reduce ? undefined : { opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          duration: 0.4,
+                          delay: 0.06 * i,
+                          ease: [0.16, 1, 0.3, 1],
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => chooseRole(r)}
+                          className={cn(
+                            "group flex w-full items-center gap-4 rounded-xl border border-line-subtle bg-surface-card p-4 text-left",
+                            "transition-[border-color,box-shadow,transform] duration-[var(--duration-base)] ease-[var(--ease-out-expo)]",
+                            "hover:-translate-y-0.5 hover:border-line hover:shadow-elev-hover",
+                          )}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="grid size-11 shrink-0 place-items-center rounded-xl bg-brand text-brand-fg"
+                          >
+                            <Icon className="size-5" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-body font-semibold text-fg-heading">
+                              Login as {ROLE_LABEL[r]}
+                            </span>
+                            <span className="mt-0.5 block text-body-sm text-fg-secondary">
+                              {ROLE_BLURB[r]}
+                            </span>
+                          </span>
+                          <ArrowRight
+                            aria-hidden="true"
+                            className="size-4 shrink-0 text-fg-muted transition-transform duration-[var(--duration-base)] ease-[var(--ease-out-expo)] group-hover:translate-x-0.5"
+                          />
+                        </button>
+                      </motion.li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+
+            {/* ========================================= 2 · identifier */}
+            {step === "identify" && account && role && (
+              <>
+                <RoleBadge role={role} />
+                <h1 className="mt-5 text-h1 text-fg-heading">
+                  {usesPassword ? "Admin sign in" : "What's your mobile?"}
+                </h1>
+                <p className="mt-3 text-body-lg text-fg-secondary">
+                  {usesPassword
+                    ? "Internal access. In production this also requires MFA."
+                    : "We'll send a six-digit code to confirm it's you."}
+                </p>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    sendCode();
+                  }}
+                  className="mt-8 space-y-5"
+                >
+                  <div>
+                    <label
+                      htmlFor="identifier"
+                      className="text-body-sm font-medium text-fg-heading"
                     >
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          "grid size-9 shrink-0 place-items-center rounded-full text-caption font-semibold",
-                          active
-                            ? "bg-action text-action-fg"
-                            : "bg-brand text-brand-fg",
-                        )}
-                      >
-                        {active ? (
-                          <Check className="size-4" />
-                        ) : (
-                          ROLE_LABEL[account.role].charAt(0)
-                        )}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-body-sm font-medium text-fg-heading">
-                          {ROLE_LABEL[account.role]}
-                        </span>
-                        <span className="block text-caption text-fg-muted">
-                          {account.blurb}
-                        </span>
-                      </span>
-                      <span
-                        className={cn(
-                          "shrink-0 text-caption font-medium",
-                          active ? "text-action" : "text-fg-muted",
-                        )}
-                      >
-                        {active ? "Filled" : "Use"}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
+                      {usesPassword ? "Admin email" : "Mobile number"}
+                    </label>
+                    <div className="relative mt-2">
+                      {usesPassword ? (
+                        <Mail
+                          aria-hidden="true"
+                          className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-fg-muted"
+                        />
+                      ) : (
+                        <Phone
+                          aria-hidden="true"
+                          className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-fg-muted"
+                        />
+                      )}
+                      <input
+                        ref={identifierRef}
+                        id="identifier"
+                        type={usesPassword ? "email" : "tel"}
+                        inputMode={usesPassword ? "email" : "tel"}
+                        autoComplete={usesPassword ? "email" : "tel"}
+                        value={identifier}
+                        onChange={(e) => setIdentifier(e.target.value)}
+                        aria-invalid={Boolean(error) || undefined}
+                        placeholder={
+                          usesPassword ? "you@propertyhelpline.example" : "0400 000 000"
+                        }
+                        className={FIELD}
+                      />
+                    </div>
+                  </div>
 
-          {/* Honest about what this is */}
-          <p className="mt-6 flex items-start gap-2.5 text-caption text-fg-muted">
+                  <ErrorNote error={error} reduce={reduce} />
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
+                    fullWidth
+                    loading={pending}
+                    className="group"
+                  >
+                    {usesPassword ? "Continue" : "Send code"}
+                    <ArrowRight
+                      aria-hidden="true"
+                      className="size-4 transition-transform duration-[var(--duration-base)] ease-[var(--ease-out-expo)] group-hover:translate-x-0.5"
+                    />
+                  </Button>
+                </form>
+              </>
+            )}
+
+            {/* ============================================== 3 · proof */}
+            {step === "verify" && account && role && (
+              <>
+                <RoleBadge role={role} />
+                <h1 className="mt-5 text-h1 text-fg-heading">
+                  {usesPassword ? "Enter your password" : "Enter the code"}
+                </h1>
+                <p className="mt-3 text-body-lg text-fg-secondary">
+                  {usesPassword ? (
+                    <>Signing in as {identifier}.</>
+                  ) : (
+                    <>Sent to {identifier}. It&apos;s six digits.</>
+                  )}
+                </p>
+
+                {/* ------------------------------------ the mock code */}
+                {!usesPassword && sentCode && (
+                  <div className="mt-6 flex items-start gap-3 rounded-xl border border-dashed border-line bg-surface-sunken p-4">
+                    <MessageSquare
+                      aria-hidden="true"
+                      className="mt-0.5 size-4 shrink-0 text-fg-muted"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-caption font-semibold uppercase tracking-wider text-fg-muted">
+                        Prototype — no SMS was sent
+                      </p>
+                      <p className="mt-1.5 text-body-sm text-fg-secondary">
+                        There is no messaging provider connected. Your code is{" "}
+                        <span className="tabular font-semibold tracking-[0.2em] text-fg-heading">
+                          {sentCode}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    verify();
+                  }}
+                  className="mt-6 space-y-5"
+                >
+                  {usesPassword ? (
+                    <div>
+                      <label
+                        htmlFor="password"
+                        className="text-body-sm font-medium text-fg-heading"
+                      >
+                        Password
+                      </label>
+                      <div className="relative mt-2">
+                        <Lock
+                          aria-hidden="true"
+                          className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-fg-muted"
+                        />
+                        <input
+                          ref={proofRef}
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          autoComplete="current-password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          aria-invalid={Boolean(error) || undefined}
+                          placeholder="Your password"
+                          className={cn(FIELD, "pr-12")}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          aria-pressed={showPassword}
+                          aria-label={
+                            showPassword ? "Hide password" : "Show password"
+                          }
+                          className="absolute right-0.5 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-md text-fg-muted transition-colors duration-[var(--duration-fast)] hover:bg-surface-sunken hover:text-fg"
+                        >
+                          {showPassword ? (
+                            <EyeOff aria-hidden="true" className="size-4" />
+                          ) : (
+                            <Eye aria-hidden="true" className="size-4" />
+                          )}
+                        </button>
+                      </div>
+                      <p className="mt-2 text-caption text-fg-muted">
+                        Demo password: <span className="font-medium">password</span>
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <label
+                        htmlFor="code"
+                        className="text-body-sm font-medium text-fg-heading"
+                      >
+                        Six-digit code
+                      </label>
+                      <div className="relative mt-2">
+                        <KeyRound
+                          aria-hidden="true"
+                          className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-fg-muted"
+                        />
+                        <input
+                          ref={proofRef}
+                          id="code"
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          maxLength={6}
+                          value={code}
+                          onChange={(e) =>
+                            setCode(e.target.value.replace(/\D/g, ""))
+                          }
+                          aria-invalid={Boolean(error) || undefined}
+                          placeholder="000000"
+                          className={cn(
+                            FIELD,
+                            "tabular text-center text-h3 tracking-[0.5em]",
+                          )}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSentCode(generateOtp());
+                          setCode("");
+                          setError(null);
+                        }}
+                        className="mt-3 min-h-11 text-body-sm text-fg-link underline-offset-4 hover:underline"
+                      >
+                        Send a new code
+                      </button>
+                    </div>
+                  )}
+
+                  <ErrorNote error={error} reduce={reduce} />
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
+                    fullWidth
+                    loading={pending}
+                    className="group"
+                  >
+                    Sign in as {ROLE_LABEL[role]}
+                    <ArrowRight
+                      aria-hidden="true"
+                      className="size-4 transition-transform duration-[var(--duration-base)] ease-[var(--ease-out-expo)] group-hover:translate-x-0.5"
+                    />
+                  </Button>
+                </form>
+              </>
+            )}
+          </motion.div>
+
+          <p className="mt-8 flex items-start gap-2.5 text-caption text-fg-muted">
             <ShieldCheck aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
             Demonstration prototype. Sign-in is simulated in your browser — no
-            account is created and nothing is sent anywhere.
+            account is created, no message is sent, and nothing leaves this
+            device.
           </p>
         </motion.div>
       </div>
     </div>
+  );
+}
+
+/* --------------------------------------------------------------- fragments */
+
+const FIELD = cn(
+  "h-12 w-full rounded-md border border-line bg-surface-card pl-10 pr-3.5 text-body text-fg",
+  "placeholder:text-fg-muted",
+  "transition-[border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out-expo)]",
+  "hover:border-line-strong",
+  "aria-[invalid=true]:border-danger",
+);
+
+function Steps({ step }: { step: Step }) {
+  const index = step === "role" ? 0 : step === "identify" ? 1 : 2;
+  return (
+    <ol className="mt-7 flex gap-2" aria-label={`Step ${index + 1} of 3`}>
+      {[0, 1, 2].map((i) => (
+        <li
+          key={i}
+          aria-current={i === index ? "step" : undefined}
+          className={cn(
+            "h-1 flex-1 rounded-full transition-colors duration-[var(--duration-base)] ease-[var(--ease-out-expo)]",
+            i <= index ? "bg-action" : "bg-line-subtle",
+          )}
+        />
+      ))}
+    </ol>
+  );
+}
+
+function RoleBadge({ role }: { role: Role }) {
+  const Icon = ROLE_ICON[role];
+  return (
+    <p className="mt-6 inline-flex items-center gap-2 rounded-full bg-surface-sunken px-3 py-1.5 text-caption font-medium text-fg-secondary">
+      <Icon aria-hidden="true" className="size-3.5 text-action" />
+      Signing in as {ROLE_LABEL[role]}
+    </p>
+  );
+}
+
+function ErrorNote({
+  error,
+  reduce,
+}: {
+  error: string | null;
+  reduce: boolean | null;
+}) {
+  return (
+    <AnimatePresence>
+      {error && (
+        <motion.p
+          key={error}
+          role="alert"
+          initial={reduce ? undefined : { opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={reduce ? undefined : { opacity: 0 }}
+          transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+          className="flex items-start gap-2 rounded-md border border-error-line bg-error-bg px-3.5 py-3 text-body-sm text-error-fg"
+        >
+          <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          {error}
+        </motion.p>
+      )}
+    </AnimatePresence>
   );
 }
