@@ -10,13 +10,19 @@ import {
   type ReactNode,
 } from "react";
 
-import { findAccount } from "@/lib/mock/accounts";
+import { findAccount, ROLE_LABEL } from "@/lib/mock/accounts";
 import {
   PROFESSIONALS as ALL_PROFESSIONALS,
-  professionalById,
   SEED_STAGES,
   serviceFor,
 } from "@/lib/mock/marketplace";
+import {
+  DEMO_SELLER_ID,
+  SEED_INTERESTS,
+  SEED_PLATFORM_EVENTS,
+  SEED_USERS,
+  seedListings,
+} from "@/lib/mock/platform";
 import {
   CRITERIA_VERSION,
   SEED_ACTIVITY,
@@ -37,13 +43,17 @@ import type {
   ActivityEntry,
   AppState,
   Comparison,
+  Interest,
   Journey,
   Listing,
+  ListingStatus,
   Milestone,
   MilestoneKey,
   MilestoneState,
   Output,
   PendingProperty,
+  PlatformEvent,
+  PlatformUser,
   Professional,
   ProfessionalApplication,
   ProfessionalOverride,
@@ -78,10 +88,28 @@ import type {
  * reality, which is the whole point of showing it.
  */
 
-const STORAGE_KEY = "tph.prototype.v1";
+/*
+  Bumped to v2 when the four-role platform state landed (listings, interests,
+  users, platform events). A v1 blob shallow-merged over the v2 seed would
+  produce a state with no `listings` array, and every search screen would be
+  empty with no clue why. A new key is the cheap, honest migration.
+*/
+const STORAGE_KEY = "tph.prototype.v2";
+
+/** Platform state shared by all four roles. Identical in seed and fresh. */
+function platformSeed() {
+  return {
+    createdProfessionals: [] as Professional[],
+    listings: seedListings(),
+    interests: SEED_INTERESTS,
+    users: SEED_USERS,
+    platformEvents: SEED_PLATFORM_EVENTS,
+  };
+}
 
 function seedState(): AppState {
   return {
+    ...platformSeed(),
     session: null,
     trustLinks: [],
     savedSearches: [],
@@ -111,6 +139,9 @@ function seedState(): AppState {
 function freshState(): AppState {
   const now = new Date().toISOString();
   return {
+    /* The platform is not reset — a first-time BUYER still arrives at a site
+       that has listings, sellers and professionals on it. */
+    ...platformSeed(),
     session: null,
     trustLinks: [],
     savedSearches: [],
@@ -203,9 +234,14 @@ interface JourneyStore {
 
   /* ⚠️ MOCK session — src/lib/mock/accounts.ts. Not authentication. */
   session: Session | null;
+  /**
+   * Completes a sign-in the SCREEN has already validated (a matching one-time
+   * code, or the admin password). This function's job is the part that depends
+   * on platform state rather than on credentials: refusing a suspended account,
+   * and recording the sign-in in the operations log.
+   */
   signIn: (
-    phone: string,
-    password: string,
+    identifier: string,
   ) => { ok: true; role: Role } | { ok: false; message: string };
   signOut: () => void;
 
@@ -277,6 +313,52 @@ interface JourneyStore {
   professionalOverrides: Record<string, ProfessionalOverride>;
   setProfessionalSuspended: (id: string, suspended: boolean) => void;
   recordProfessionalVerification: (id: string, what: string) => void;
+  /** Every professional including suspended ones — admin screens only. */
+  allProfessionals: Professional[];
+  /** The signed-in professional's own listing in the cohort, if any. */
+  myProfessional: Professional | undefined;
+  updateProfessionalProfile: (
+    id: string,
+    patch: NonNullable<ProfessionalOverride["profile"]>,
+  ) => void;
+
+  /* ------------------------------------------- the four-role platform, Aug 2026 */
+
+  /**
+   * All listings, seeded and seller-created. Public surfaces filter this to
+   * `published`; the seller's own dashboard sees their drafts too.
+   */
+  listings: Listing[];
+  publishedListings: Listing[];
+  getListing: (id: string) => Listing | undefined;
+  /** Listings owned by the signed-in seller. */
+  myListings: Listing[];
+  createListing: (
+    input: Omit<Listing, "id" | "sellerId" | "sellerName" | "createdAt">,
+  ) => string;
+  updateListing: (id: string, patch: Partial<Listing>) => void;
+  setListingStatus: (id: string, status: ListingStatus) => void;
+
+  /** Buyer → seller interest. See the note on `Interest` in mock/types.ts. */
+  interests: Interest[];
+  /** Interest in the signed-in seller's own stock. */
+  myInterests: Interest[];
+  interestForListing: (listingId: string) => Interest | undefined;
+  expressInterest: (input: {
+    listingId: string;
+    message: string;
+    sharePhone: boolean;
+  }) => string;
+  markInterestSeen: (id: string) => void;
+  replyToInterest: (id: string, body: string) => void;
+  closeInterest: (id: string) => void;
+
+  /** The account directory admin manages. */
+  users: PlatformUser[];
+  setUserSuspended: (id: string, suspended: boolean) => void;
+
+  /** Cross-role operations log. Distinct from the buyer's own `activity`. */
+  platformEvents: PlatformEvent[];
 
   /* save boundary — FR-01-15, ENT-03 */
   hasPropId: boolean;
@@ -326,11 +408,22 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
     }
   }, [state, hydrated]);
 
-  /** Every mutation stamps the journey's save time and may log activity. */
+  /**
+   * Every mutation stamps the journey's save time and may log two different
+   * things:
+   *
+   *   `log`   — the BUYER's own diary, written in second person ("You saved …")
+   *   `event` — the operations log the admin reads, written in third person
+   *
+   * They are separate because merging them would put one user's private phrasing
+   * into a platform screen, and would make the admin's feed grow with actions no
+   * operator cares about.
+   */
   const commit = useCallback(
     (
       mutate: (draft: AppState) => AppState,
       log?: { what: string; kind: ActivityEntry["kind"] },
+      event?: Omit<PlatformEvent, "id" | "at">,
     ) => {
       setState((prev) => {
         const next = mutate(prev);
@@ -343,6 +436,12 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
           activity: log
             ? [{ id: `a-${at}`, at, ...log }, ...next.activity].slice(0, 40)
             : next.activity,
+          platformEvents: event
+            ? [
+                { id: `pe-${at}-${Math.random().toString(36).slice(2, 7)}`, at, ...event },
+                ...next.platformEvents,
+              ].slice(0, 60)
+            : next.platformEvents,
         };
       });
     },
@@ -372,17 +471,44 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
    * A suspended business disappears from the directory entirely, and a
    * verification an admin recorded replaces whatever the seed said.
    */
+  /**
+   * Every professional the platform knows about, with admin and self-service
+   * state applied — the seeded cohort plus anyone an admin created by verifying
+   * an application, in join order.
+   *
+   * Precedence is deliberate: a professional may rewrite their own description
+   * (`override.profile`), but `verification` is applied AFTER it, so no edit
+   * can ever change what TPH says it checked (PRO-05).
+   */
+  const allProfessionals = useMemo(
+    () =>
+      [...ALL_PROFESSIONALS, ...state.createdProfessionals].map((p) => {
+        const override = state.professionalOverrides[p.id];
+        if (!override) return p;
+        return {
+          ...p,
+          ...(override.profile ?? {}),
+          ...(override.verification !== undefined
+            ? { verification: override.verification }
+            : {}),
+        };
+      }),
+    [state.professionalOverrides, state.createdProfessionals],
+  );
+
+  /** What a buyer sees. A suspended business disappears from the directory. */
   const resolvedProfessionals = useMemo(
     () =>
-      ALL_PROFESSIONALS.filter(
+      allProfessionals.filter(
         (p) => !state.professionalOverrides[p.id]?.suspended,
-      ).map((p) => {
-        const override = state.professionalOverrides[p.id];
-        return override?.verification !== undefined
-          ? { ...p, verification: override.verification }
-          : p;
-      }),
-    [state.professionalOverrides],
+      ),
+    [allProfessionals, state.professionalOverrides],
+  );
+
+  /** Lookup that includes suspended entries — used for activity wording. */
+  const lookupProfessional = useCallback(
+    (id: string) => allProfessionals.find((p) => p.id === id),
+    [allProfessionals],
   );
 
   const currentReadiness = useMemo(
@@ -746,21 +872,36 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
        * match"), which is the same no-account-enumeration behaviour S05
        * specifies for the real screen.
        */
-      signIn: (phone, password) => {
-        const account = findAccount(phone);
-        if (!account || account.password !== password) {
+      signIn: (identifier) => {
+        const account = findAccount(identifier);
+        if (!account) {
           return {
             ok: false as const,
             message: "Those details don't match an account.",
           };
         }
 
+        /* Suspension is real state, not a label. An account an admin suspended
+           in this session cannot sign in — which is what makes the admin's
+           control demonstrable rather than cosmetic. */
+        const record = state.users.find(
+          (u) => u.demo && u.role === account.role,
+        );
+        if (record?.suspended) {
+          return {
+            ok: false as const,
+            message:
+              "This account is suspended. Contact The Property Helpline to restore access.",
+          };
+        }
+
+        const now = new Date().toISOString();
         const session: Session = {
           role: account.role,
           phone: account.phone,
           name: account.name,
           context: account.context,
-          signedInAt: new Date().toISOString(),
+          signedInAt: now,
         };
 
         setState((prev) => ({
@@ -775,6 +916,17 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
                   lastName: account.name.split(" ").slice(1).join(" "),
                 }
               : prev.user,
+          platformEvents: [
+            {
+              id: `pe-${now}-in`,
+              at: now,
+              actorRole: account.role,
+              actorName: account.name,
+              what: `Signed in as ${ROLE_LABEL[account.role].toLowerCase()}`,
+              kind: "auth" as const,
+            },
+            ...prev.platformEvents,
+          ].slice(0, 60),
         }));
 
         return { ok: true as const, role: account.role };
@@ -913,7 +1065,7 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
         const now = new Date().toISOString();
         const link = state.trustLinks.find((t) => t.id === id);
         if (!link) return;
-        const pro = professionalById(link.professionalId);
+        const pro = lookupProfessional(link.professionalId);
         const service = serviceFor(link.serviceKey);
         const expiresAt = new Date(
           Date.now() + link.expiryDays * 86_400_000,
@@ -966,7 +1118,7 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
 
       declineTrustLink: (id) => {
         const now = new Date().toISOString();
-        const pro = professionalById(
+        const pro = lookupProfessional(
           state.trustLinks.find((t) => t.id === id)?.professionalId ?? "",
         );
         commit(
@@ -1052,7 +1204,7 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
         const now = new Date().toISOString();
         const link = state.trustLinks.find((t) => t.id === input.trustLinkId);
         if (!link) return;
-        const pro = professionalById(link.professionalId);
+        const pro = lookupProfessional(link.professionalId);
         const service = serviceFor(link.serviceKey);
 
         const output: Output = {
@@ -1172,20 +1324,29 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
 
       submitApplication: (input) => {
         const id = `app-${Date.now().toString(36)}`;
-        setState((prev) => ({
-          ...prev,
-          applications: [
-            {
-              ...input,
-              id,
-              status: "pending",
-              submittedAt: new Date().toISOString(),
-              verification: null,
-              declineReason: null,
-            },
-            ...prev.applications,
-          ],
-        }));
+        commit(
+          (d) => ({
+            ...d,
+            applications: [
+              {
+                ...input,
+                id,
+                status: "pending" as const,
+                submittedAt: new Date().toISOString(),
+                verification: null,
+                declineReason: null,
+              },
+              ...d.applications,
+            ],
+          }),
+          undefined,
+          {
+            actorRole: "professional",
+            actorName: input.contactName,
+            what: `${input.businessName} applied to join as a ${serviceFor(input.serviceKey).label.toLowerCase()}`,
+            kind: "verification",
+          },
+        );
         return id;
       },
 
@@ -1193,33 +1354,105 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
        * PRO-05 — an admin records WHAT was checked and WHEN. The published
        * wording is derived from that record, never from the applicant's claim.
        */
-      verifyApplication: (id, what) =>
-        setState((prev) => ({
-          ...prev,
-          applications: prev.applications.map((a) =>
-            a.id === id
-              ? {
-                  ...a,
-                  status: "verified",
-                  verification: {
-                    what,
-                    checkedOn: new Date().toISOString().slice(0, 10),
-                    by: prev.session?.name ?? "TPH Operations",
-                  },
-                }
-              : a,
-          ),
-        })),
+      verifyApplication: (id, what) => {
+        const application = state.applications.find((a) => a.id === id);
+        if (!application) return;
+        const checkedOn = new Date().toISOString().slice(0, 10);
 
-      declineApplication: (id, reason) =>
-        setState((prev) => ({
-          ...prev,
-          applications: prev.applications.map((a) =>
-            a.id === id
-              ? { ...a, status: "declined", declineReason: reason }
-              : a,
-          ),
-        })),
+        /*
+          Verifying now CREATES A LIVE PROFILE.
+
+          Previously it only stamped the application, so a verified applicant
+          never appeared in the directory and the admin's decision had no
+          visible effect anywhere else — the loose end flagged after the last
+          round. The professional's own claim is NOT carried across: `experience`
+          is written by us, and `verification` comes from the admin's check.
+        */
+        const professional: Professional = {
+          id: `pro-${application.id}`,
+          serviceKey: application.serviceKey,
+          category: serviceFor(application.serviceKey).label,
+          name: application.businessName,
+          contactName: application.contactName,
+          area: application.area,
+          approach: application.approach,
+          experience: "Recently joined The Property Helpline",
+          verification: { what, checkedOn },
+          feeNote: null,
+          serviceAreas: [application.area],
+          photoUrl: null,
+        };
+
+        commit(
+          (d) => ({
+            ...d,
+            applications: d.applications.map((a) =>
+              a.id === id
+                ? {
+                    ...a,
+                    status: "verified" as const,
+                    verification: {
+                      what,
+                      checkedOn,
+                      by: d.session?.name ?? "TPH Operations",
+                    },
+                  }
+                : a,
+            ),
+            createdProfessionals: d.createdProfessionals.some(
+              (p) => p.id === professional.id,
+            )
+              ? d.createdProfessionals
+              : [...d.createdProfessionals, professional],
+            users: d.users.some((u) => u.email === application.email)
+              ? d.users
+              : [
+                  ...d.users,
+                  {
+                    id: `u-${application.id}`,
+                    role: "professional" as const,
+                    name: application.contactName,
+                    phone: application.phone,
+                    email: application.email,
+                    context: `${application.businessName} · ${serviceFor(application.serviceKey).label}`,
+                    joinedAt: new Date().toISOString(),
+                    suspended: false,
+                    demo: false,
+                  },
+                ],
+          }),
+          undefined,
+          {
+            actorRole: "admin",
+            actorName: state.session?.name ?? "TPH Operations",
+            what: `Verified ${application.businessName} — ${what.toLowerCase()} checked. Now listed in the directory.`,
+            kind: "verification",
+          },
+        );
+      },
+
+      declineApplication: (id, reason) => {
+        const application = state.applications.find((a) => a.id === id);
+        commit(
+          (d) => ({
+            ...d,
+            applications: d.applications.map((a) =>
+              a.id === id
+                ? { ...a, status: "declined" as const, declineReason: reason }
+                : a,
+            ),
+          }),
+          undefined,
+          application
+            ? {
+                actorRole: "admin",
+                actorName: state.session?.name ?? "TPH Operations",
+                what: `Declined the application from ${application.businessName}`,
+                kind: "verification",
+              }
+            : undefined,
+        );
+      },
 
       professionals: resolvedProfessionals,
 
@@ -1227,29 +1460,312 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
 
       professionalOverrides: state.professionalOverrides,
 
-      setProfessionalSuspended: (id, suspended) =>
-        setState((prev) => ({
-          ...prev,
-          professionalOverrides: {
-            ...prev.professionalOverrides,
-            [id]: { ...prev.professionalOverrides[id], suspended },
+      setProfessionalSuspended: (id, suspended) => {
+        const pro = lookupProfessional(id);
+        commit(
+          (d) => ({
+            ...d,
+            professionalOverrides: {
+              ...d.professionalOverrides,
+              [id]: { ...d.professionalOverrides[id], suspended },
+            },
+          }),
+          undefined,
+          {
+            actorRole: "admin",
+            actorName: state.session?.name ?? "TPH Operations",
+            what: `${suspended ? "Suspended" : "Reactivated"} ${pro?.name ?? id}${suspended ? " — removed from the directory" : ""}`,
+            kind: "verification",
           },
-        })),
+        );
+      },
 
-      recordProfessionalVerification: (id, what) =>
-        setState((prev) => ({
-          ...prev,
-          professionalOverrides: {
-            ...prev.professionalOverrides,
-            [id]: {
-              ...prev.professionalOverrides[id],
-              verification: {
-                what,
-                checkedOn: new Date().toISOString().slice(0, 10),
+      recordProfessionalVerification: (id, what) => {
+        const pro = lookupProfessional(id);
+        commit(
+          (d) => ({
+            ...d,
+            professionalOverrides: {
+              ...d.professionalOverrides,
+              [id]: {
+                ...d.professionalOverrides[id],
+                verification: {
+                  what,
+                  checkedOn: new Date().toISOString().slice(0, 10),
+                },
               },
             },
+          }),
+          undefined,
+          {
+            actorRole: "admin",
+            actorName: state.session?.name ?? "TPH Operations",
+            what: `Recorded a ${what.toLowerCase()} check for ${pro?.name ?? id}`,
+            kind: "verification",
           },
+        );
+      },
+
+      allProfessionals,
+
+      myProfessional:
+        state.session?.role === "professional"
+          ? allProfessionals.find(
+              (p) => p.contactName === state.session?.name,
+            ) ?? allProfessionals[0]
+          : undefined,
+
+      /**
+       * A professional edits their own profile.
+       *
+       * Note what is NOT in the permitted patch type: `verification`. A
+       * professional can rewrite every word of their description and never
+       * touch what TPH says it checked (PRO-05) — the type makes the attempt a
+       * compile error rather than a policy anyone has to remember.
+       */
+      updateProfessionalProfile: (id, patch) => {
+        const pro = lookupProfessional(id);
+        commit(
+          (d) => ({
+            ...d,
+            professionalOverrides: {
+              ...d.professionalOverrides,
+              [id]: {
+                ...d.professionalOverrides[id],
+                profile: { ...d.professionalOverrides[id]?.profile, ...patch },
+              },
+            },
+          }),
+          undefined,
+          {
+            actorRole: "professional",
+            actorName: state.session?.name ?? pro?.name ?? "A professional",
+            what: `Updated the profile for ${pro?.name ?? id}`,
+            kind: "account",
+          },
+        );
+      },
+
+      /* ------------------------------------------------------------ listings */
+
+      listings: state.listings,
+
+      publishedListings: state.listings.filter(
+        (l) => (l.status ?? "published") === "published",
+      ),
+
+      getListing: (id) => state.listings.find((l) => l.id === id),
+
+      myListings: state.listings.filter(
+        (l) => l.sellerId === DEMO_SELLER_ID && state.session?.role === "seller",
+      ),
+
+      /**
+       * A seller publishes a property, and a buyer can find it.
+       *
+       * This is the single most important link in the cross-role demo: the new
+       * listing goes into the SAME array the homepage and search read, so there
+       * is no second code path for "seller stock" that could drift from the
+       * seeded stock. The only difference between the two is that this one
+       * carries a `sellerId`.
+       */
+      createListing: (input) => {
+        const id = `l-${Date.now().toString(36)}`;
+        const now = new Date().toISOString();
+        const listing: Listing = {
+          ...input,
+          id,
+          sellerId: DEMO_SELLER_ID,
+          sellerName: state.session?.name ?? "Seller",
+          createdAt: now,
+        };
+
+        commit(
+          (d) => ({ ...d, listings: [listing, ...d.listings] }),
+          undefined,
+          {
+            actorRole: "seller",
+            actorName: state.session?.name ?? "A seller",
+            what:
+              (input.status ?? "published") === "published"
+                ? `Published ${input.address}, ${input.suburb}`
+                : `Saved a draft listing for ${input.address}, ${input.suburb}`,
+            kind: "listing",
+          },
+        );
+        return id;
+      },
+
+      updateListing: (id, patch) =>
+        commit((d) => ({
+          ...d,
+          listings: d.listings.map((l) => (l.id === id ? { ...l, ...patch } : l)),
         })),
+
+      setListingStatus: (id, status) => {
+        const listing = state.listings.find((l) => l.id === id);
+        const byAdmin = state.session?.role === "admin";
+        commit(
+          (d) => ({
+            ...d,
+            listings: d.listings.map((l) =>
+              l.id === id ? { ...l, status } : l,
+            ),
+          }),
+          undefined,
+          listing
+            ? {
+                actorRole: byAdmin ? "admin" : "seller",
+                actorName: state.session?.name ?? "A seller",
+                what:
+                  status === "published"
+                    ? `Published ${listing.address}, ${listing.suburb}`
+                    : status === "withdrawn"
+                      ? `Withdrew ${listing.address}, ${listing.suburb}`
+                      : status === "removed_by_admin"
+                        ? `Removed ${listing.address}, ${listing.suburb} from the platform`
+                        : `Moved ${listing.address}, ${listing.suburb} back to draft`,
+                kind: "listing",
+              }
+            : undefined,
+        );
+      },
+
+      /* ------------------------------------------------------------ interest */
+
+      interests: state.interests,
+
+      myInterests:
+        state.session?.role === "seller"
+          ? state.interests.filter((i) => {
+              const listing = state.listings.find((l) => l.id === i.listingId);
+              return listing?.sellerId === DEMO_SELLER_ID;
+            })
+          : [],
+
+      interestForListing: (listingId) =>
+        state.interests.find(
+          (i) =>
+            i.listingId === listingId &&
+            i.buyerName === state.user.firstName &&
+            i.status !== "closed",
+        ),
+
+      /**
+       * The buyer contacts the seller.
+       *
+       * `sharePhone` is the whole design. It defaults to OFF at every call site,
+       * and when it is off the number is not merely hidden from the seller's
+       * screen — it is never written into the record. A field that does not
+       * exist cannot leak later.
+       */
+      expressInterest: (input) => {
+        const id = `int-${Date.now().toString(36)}`;
+        const now = new Date().toISOString();
+        const listing = state.listings.find((l) => l.id === input.listingId);
+
+        const interest: Interest = {
+          id,
+          listingId: input.listingId,
+          listingAddress: listing
+            ? `${listing.address}, ${listing.suburb}`
+            : "A property",
+          buyerName: state.user.firstName,
+          buyerPhone: input.sharePhone ? state.user.phone : null,
+          sharePhone: input.sharePhone,
+          message: input.message,
+          status: "sent",
+          createdAt: now,
+          thread: [],
+        };
+
+        commit(
+          (d) => ({ ...d, interests: [interest, ...d.interests] }),
+          {
+            what: `You registered interest in ${interest.listingAddress}`,
+            kind: "property",
+          },
+          {
+            actorRole: "buyer",
+            actorName: state.session?.name ?? state.user.firstName,
+            what: `Registered interest in ${interest.listingAddress}`,
+            kind: "interest",
+          },
+        );
+        return id;
+      },
+
+      markInterestSeen: (id) =>
+        commit((d) => ({
+          ...d,
+          interests: d.interests.map((i) =>
+            i.id === id && i.status === "sent" ? { ...i, status: "seen" } : i,
+          ),
+        })),
+
+      replyToInterest: (id, body) => {
+        const now = new Date().toISOString();
+        const interest = state.interests.find((i) => i.id === id);
+        commit(
+          (d) => ({
+            ...d,
+            interests: d.interests.map((i) =>
+              i.id === id
+                ? {
+                    ...i,
+                    status: "replied",
+                    thread: [...i.thread, { at: now, by: "seller" as const, body }],
+                  }
+                : i,
+            ),
+          }),
+          interest
+            ? {
+                what: `The seller replied about ${interest.listingAddress}`,
+                kind: "property",
+              }
+            : undefined,
+          {
+            actorRole: "seller",
+            actorName: state.session?.name ?? "A seller",
+            what: `Replied to a buyer about ${interest?.listingAddress ?? "a property"}`,
+            kind: "interest",
+          },
+        );
+      },
+
+      closeInterest: (id) =>
+        commit((d) => ({
+          ...d,
+          interests: d.interests.map((i) =>
+            i.id === id ? { ...i, status: "closed" } : i,
+          ),
+        })),
+
+      /* --------------------------------------------------------------- users */
+
+      users: state.users,
+
+      setUserSuspended: (id, suspended) => {
+        const target = state.users.find((u) => u.id === id);
+        commit(
+          (d) => ({
+            ...d,
+            users: d.users.map((u) => (u.id === id ? { ...u, suspended } : u)),
+          }),
+          undefined,
+          target
+            ? {
+                actorRole: "admin",
+                actorName: state.session?.name ?? "TPH Operations",
+                what: `${suspended ? "Suspended" : "Restored"} the account for ${target.name}`,
+                kind: "account",
+              }
+            : undefined,
+        );
+      },
+
+      platformEvents: state.platformEvents,
 
       hasPropId: state.hasPropId,
       pendingProperty: state.pendingProperty,
@@ -1343,7 +1859,19 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
         setState({ ...freshState(), session: state.session });
       },
     };
-  }, [state, hydrated, journey, properties, activeProperties, archivedProperties, commit]);
+  }, [
+    state,
+    hydrated,
+    journey,
+    properties,
+    activeProperties,
+    archivedProperties,
+    commit,
+    allProfessionals,
+    resolvedProfessionals,
+    lookupProfessional,
+    currentReadiness,
+  ]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

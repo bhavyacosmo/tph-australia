@@ -9,7 +9,6 @@ import { RevealGroup, RevealItem } from "@/components/motion/reveal";
 import { ListingCard } from "@/components/domain/listing-card";
 import { ProfessionalCard } from "@/components/domain/professional-card";
 import { useJourneyStore } from "@/lib/store/journey-store";
-import { LISTINGS, PROFESSIONALS } from "@/lib/mock/marketplace";
 import { routes } from "@/lib/routes";
 
 /**
@@ -34,11 +33,12 @@ import { routes } from "@/lib/routes";
  */
 export function HomeMarketplace() {
   const router = useRouter();
-  const { saveListing, savedListingIds, session } = useJourneyStore();
+  const { saveListing, savedListingIds, session, publishedListings, professionals } =
+    useJourneyStore();
 
   /* Signing in is the gate on saving, not on browsing. */
   const onSave = (listingId: string) => {
-    const listing = LISTINGS.find((l) => l.id === listingId);
+    const listing = publishedListings.find((l) => l.id === listingId);
     if (!listing) return;
     if (!session) {
       router.push(`/sign-in?next=${encodeURIComponent(`/search/${listing.id}`)}`);
@@ -47,8 +47,15 @@ export function HomeMarketplace() {
     saveListing(listing);
   };
 
-  const forSale = LISTINGS.filter((l) => l.listingType === "buy").slice(0, 4);
-  const featured = PROFESSIONALS.filter((p) => p.verification).slice(0, 3);
+  /*
+    Both rails read the STORE rather than the seed modules, so a property a
+    seller published and a professional an admin verified both appear here
+    without a reload.
+  */
+  const forSale = publishedListings
+    .filter((l) => l.listingType === "buy")
+    .slice(0, 4);
+  const featured = professionals.filter((p) => p.verification).slice(0, 3);
 
   return (
     /* Asymmetric padding. The hero's search card overlaps into the top of this
@@ -133,10 +140,12 @@ export function HomeMarketplace() {
               <RevealGroup className="mt-6 space-y-4" stagger={0.07}>
                 {featured.map((professional) => (
                   <RevealItem key={professional.id}>
+                    {/* Split card — portrait one half, details the other
+                        (client review, 15 August 2026). */}
                     <ProfessionalCard
                       professional={professional}
                       href={routes.professional(professional.id)}
-                      variant="compact"
+                      variant="split"
                     />
                   </RevealItem>
                 ))}

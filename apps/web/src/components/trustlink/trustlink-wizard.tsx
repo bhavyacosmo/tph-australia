@@ -27,8 +27,6 @@ import { useJourneyStore } from "@/lib/store/journey-store";
 import {
   CONTACT_CHANNELS,
   EXPIRY_OPTIONS,
-  professionalById,
-  professionalsFor,
   SCOPE_ITEMS,
   SERVICES,
   serviceFor,
@@ -68,8 +66,31 @@ export function TrustLinkWizard({
 }) {
   const router = useRouter();
   const reduce = useReducedMotion();
-  const { journey, activeProperties, createTrustLink, state } =
-    useJourneyStore();
+  const {
+    journey,
+    activeProperties,
+    createTrustLink,
+    state,
+    /*
+      Read the STORE, not the seed module. A professional an admin verified
+      minutes ago must be choosable here, and a suspended one must not be —
+      neither of which is true of the static cohort.
+    */
+    professionals,
+    getProfessional,
+  } = useJourneyStore();
+
+  /** Verified first: the distinction is the point of the directory. */
+  const choicesFor = (key: ServiceKey) =>
+    professionals
+      .filter((p) => p.serviceKey === key)
+      .sort((a, b) =>
+        a.verification && !b.verification
+          ? -1
+          : !a.verification && b.verification
+            ? 1
+            : 0,
+      );
 
   const [step, setStep] = useState<Step>(
     initialProfessional ? "sharing" : initialService ? "professional" : "service",
@@ -102,7 +123,7 @@ export function TrustLinkWizard({
   const [note, setNote] = useState("");
 
   const service = serviceKey ? serviceFor(serviceKey) : null;
-  const professional = professionalId ? professionalById(professionalId) : null;
+  const professional = professionalId ? getProfessional(professionalId) : null;
   const property = activeProperties.find((p) => p.id === propertyId);
 
   const stepIndex = STEPS.findIndex((s) => s.key === step);
@@ -286,7 +307,7 @@ export function TrustLinkWizard({
                 </p>
 
                 <ul className="mt-10 space-y-4">
-                  {professionalsFor(service.key).map((p) => {
+                  {choicesFor(service.key).map((p) => {
                     const selected = professionalId === p.id;
                     return (
                       <li key={p.id}>

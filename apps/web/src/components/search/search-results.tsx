@@ -13,7 +13,6 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { ListingCard } from "@/components/domain/listing-card";
 import { PropertySearchBar } from "@/components/search/property-search-bar";
 import { useJourneyStore } from "@/lib/store/journey-store";
-import { LISTINGS } from "@/lib/mock/marketplace";
 import { SHORTLIST_LIMIT } from "@/lib/mock/seed";
 import { routes } from "@/lib/routes";
 import type { Listing } from "@/lib/mock/types";
@@ -51,6 +50,7 @@ export function SearchResults({
     session,
     saveSearch,
     savedSearches,
+    publishedListings,
   } = useJourneyStore();
   const [limitHit, setLimitHit] = useState(false);
   const [justSaved, setJustSaved] = useState<string | null>(null);
@@ -67,7 +67,18 @@ export function SearchResults({
   const [searchSavedLocal, setSearchSaved] = useState(false);
   const searchSaved = alreadySaved || searchSavedLocal;
 
-  const results = filterListings(LISTINGS, { where, mode, type, beds, price });
+  /*
+    Reads the STORE, not the seed module. A property a seller published minutes
+    ago is in this array — that is the whole point of the cross-role demo, and
+    the reason there is no separate code path for "seller stock".
+  */
+  const results = filterListings(publishedListings, {
+    where,
+    mode,
+    type,
+    beds,
+    price,
+  });
 
   const onSave = (listing: Listing) => {
     /* Saving is the moment a browser becomes a user — so it is the moment we

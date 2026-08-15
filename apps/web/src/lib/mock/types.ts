@@ -234,6 +234,19 @@ export interface Professional {
  * here is hand-written demo content behind one module so a real feed, an agency
  * partnership or admin-entered stock can replace it without touching a screen.
  */
+/**
+ * Where a listing came from, and whether the public can see it.
+ *
+ * `draft` and `withdrawn` exist because the seller flow needs somewhere for a
+ * property to live before and after it is public. `removed_by_admin` is kept
+ * distinct from `withdrawn` so the seller can be told who took it down.
+ */
+export type ListingStatus =
+  | "draft"
+  | "published"
+  | "withdrawn"
+  | "removed_by_admin";
+
 export interface Listing {
   id: string;
   listingType: "buy" | "rent";
@@ -254,6 +267,26 @@ export interface Listing {
   /** Key into src/lib/mock/media.ts, not a URL */
   imageKey: string;
   inspectionNote: string | null;
+
+  /* ---------------------------------------------- seller-supplied, Aug 2026 */
+  /*
+    All optional, so the eight seeded listings need no rewriting and stay
+    honestly distinguishable from stock a seller entered in-session. Defaults
+    are resolved in one place — `normaliseListing()` in mock/marketplace.ts.
+  */
+
+  /** Undefined on seeded stock, which is published by definition. */
+  status?: ListingStatus;
+  /** Null on seeded stock: nobody in this prototype owns those. */
+  sellerId?: string | null;
+  sellerName?: string | null;
+  /** FR-05-02 shape — the seller chooses how a buyer may reach them. */
+  sellerContact?: "through_tph" | "phone" | "email";
+  /** Connections and services at the property — seller listing form. */
+  utilities?: string[];
+  /** Schools, transport, shops the seller wants a buyer to know about. */
+  nearby?: string[];
+  createdAt?: string;
 }
 
 /* ------------------------------------------------------------ saved searches */
@@ -328,6 +361,24 @@ export interface ProfessionalApplication {
 export interface ProfessionalOverride {
   suspended?: boolean;
   verification?: { what: string; checkedOn: string } | null;
+  /**
+   * Fields the professional edited on their own profile. Kept separate from the
+   * verification record on purpose: a professional may rewrite their own
+   * description freely, but can never touch what TPH says it checked (PRO-05).
+   */
+  profile?: Partial<
+    Pick<
+      Professional,
+      | "name"
+      | "contactName"
+      | "category"
+      | "area"
+      | "approach"
+      | "experience"
+      | "feeNote"
+      | "serviceAreas"
+    >
+  >;
 }
 
 /* --------------------------------------------------------------- trust links */
@@ -434,7 +485,18 @@ export interface TransactionStage {
 
 /* --------------------------------------------------------------------- role */
 
-export type Role = "buyer" | "professional" | "admin";
+/**
+ * ⚠️ SCOPE NOTE — `seller` added August 2026 on client instruction.
+ *
+ * The documented Stage 1 product is buyer-side only: professionals act for the
+ * BUYER, TPH does not represent sellers, and there is no listing portal
+ * ([C-13], FR-03-03, FR-03-04). A seller who lists property and talks to buyers
+ * is a marketplace, which is a different product with different obligations
+ * (agent-conduct rules, listing accuracy, dispute handling). It is built here
+ * because it was asked for directly; it is flagged in
+ * docs/00-governance/03-conflict-register.md rather than resolved silently.
+ */
+export type Role = "buyer" | "seller" | "professional" | "admin";
 
 /**
  * ⚠️ A MOCK session. See src/lib/mock/accounts.ts — this is not authentication,
@@ -471,6 +533,91 @@ export interface Milestone {
   state: MilestoneState;
   detail: string;
   completedAt: string | null;
+}
+
+/* ------------------------------------------------------- buyer ↔ seller */
+
+/**
+ * A buyer telling a seller they are interested.
+ *
+ * Modelled on the same principle as a Trust Link: **nothing about the buyer
+ * travels unless the buyer switches it on.** The seller always sees the
+ * property and the message; they see a phone number only if `sharePhone` is
+ * true, and the buyer's surname never.
+ *
+ * ⚠️ NOT a messaging product. `thread` is a two-party note trail so the
+ * prototype can show a reply arriving. There is no delivery, no notification
+ * and no real-time transport.
+ */
+export type InterestStatus = "sent" | "seen" | "replied" | "closed";
+
+export interface InterestMessage {
+  at: string;
+  by: "buyer" | "seller";
+  body: string;
+}
+
+export interface Interest {
+  id: string;
+  listingId: string;
+  /** Denormalised so the seller's inbox reads correctly if stock changes */
+  listingAddress: string;
+  buyerName: string;
+  /** Only populated when `sharePhone` is true — otherwise it is not stored */
+  buyerPhone: string | null;
+  sharePhone: boolean;
+  message: string;
+  status: InterestStatus;
+  createdAt: string;
+  thread: InterestMessage[];
+}
+
+/* --------------------------------------------------------- platform events */
+
+/**
+ * The admin's view of what is happening across all four roles.
+ *
+ * Distinct from `ActivityEntry`, which is the BUYER's own diary and is written
+ * in second person ("You saved …"). Mixing the two would put one user's private
+ * wording into an operations screen, so they stay separate lists.
+ */
+export interface PlatformEvent {
+  id: string;
+  at: string;
+  actorRole: Role | "system";
+  actorName: string;
+  what: string;
+  kind:
+    | "auth"
+    | "listing"
+    | "interest"
+    | "trustlink"
+    | "output"
+    | "verification"
+    | "account"
+    | "property";
+}
+
+/* ------------------------------------------------------------ platform users */
+
+/**
+ * The account directory admin manages.
+ *
+ * Seeded with the four demo accounts plus enough fictional buyers and sellers
+ * that the admin tables are not empty. Suspension is real state — a suspended
+ * account is refused at sign-in.
+ */
+export interface PlatformUser {
+  id: string;
+  role: Role;
+  name: string;
+  phone: string;
+  email: string | null;
+  context: string;
+  joinedAt: string;
+  suspended: boolean;
+  /** True for the four sign-in-able demo accounts */
+  demo: boolean;
 }
 
 /* ------------------------------------------------------------------ activity */
@@ -518,6 +665,21 @@ export interface AppState {
   savedSearches: SavedSearch[];
   applications: ProfessionalApplication[];
   professionalOverrides: Record<string, ProfessionalOverride>;
+  /**
+   * Professionals an admin created by verifying an application. Held apart from
+   * the seeded cohort so "who TPH shipped with" and "who joined during the
+   * demo" never blur together.
+   */
+  createdProfessionals: Professional[];
+  /**
+   * ALL listings — the eight seeded plus anything a seller published in this
+   * session. Search, the homepage and Prop ID read this, never the seed module,
+   * which is what makes a seller's new property findable by a buyer.
+   */
+  listings: Listing[];
+  interests: Interest[];
+  users: PlatformUser[];
+  platformEvents: PlatformEvent[];
   /** FR-05-06 · RDY-06 — newest first, superseded assessments retained */
   readiness: ReadinessAssessment[];
   milestones: Milestone[];

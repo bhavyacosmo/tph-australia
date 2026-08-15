@@ -103,7 +103,7 @@ export const PROFESSIONALS: Professional[] = [
     verification: { what: "QBCC licence", checkedOn: "2026-08-12" },
     feeNote: "Indicative $550–$690 depending on property size",
     serviceAreas: ["Carindale", "Camp Hill", "Coorparoo", "Mansfield"],
-    photoUrl: null,
+    photoUrl: "/img/pro/pro-buildcheck.jpg",
   },
   {
     id: "pro-truline",
@@ -118,7 +118,7 @@ export const PROFESSIONALS: Professional[] = [
     verification: { what: "QBCC licence", checkedOn: "2026-08-09" },
     feeNote: "Indicative $600 flat for homes under 350m²",
     serviceAreas: ["Ashgrove", "Paddington", "Windsor", "Clayfield"],
-    photoUrl: null,
+    photoUrl: "/img/pro/pro-truline.jpg",
   },
   {
     id: "pro-clearpest",
@@ -133,7 +133,7 @@ export const PROFESSIONALS: Professional[] = [
     verification: { what: "Pest management technician licence", checkedOn: "2026-08-12" },
     feeNote: "Indicative $340, or $180 when combined with a building inspection",
     serviceAreas: ["Greater Brisbane"],
-    photoUrl: null,
+    photoUrl: "/img/pro/pro-clearpest.jpg",
   },
   {
     id: "pro-ashgrove-law",
@@ -148,7 +148,7 @@ export const PROFESSIONALS: Professional[] = [
     verification: { what: "Practising certificate", checkedOn: "2026-08-12" },
     feeNote: "Fixed fee from $1,450 plus disbursements",
     serviceAreas: ["Greater Brisbane", "Ipswich"],
-    photoUrl: null,
+    photoUrl: "/img/pro/pro-ashgrove-law.jpg",
   },
   {
     id: "pro-meridian-legal",
@@ -179,7 +179,7 @@ export const PROFESSIONALS: Professional[] = [
     verification: { what: "Real estate agent licence", checkedOn: "2026-08-12" },
     feeNote: "Engagement fee plus success fee — quoted per brief",
     serviceAreas: ["Greater Brisbane"],
-    photoUrl: null,
+    photoUrl: "/img/pro/pro-kerbside.jpg",
   },
   {
     id: "pro-eastside-buyers",

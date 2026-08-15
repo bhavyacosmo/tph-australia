@@ -115,6 +115,41 @@ export function PageHeader({
 }
 
 /**
+ * The header every dashboard section uses.
+ *
+ * Smaller than `PageHeader`: inside the shared shell the page title is a
+ * section title, not the top of a document, so it sets at `h2` and carries a
+ * rule beneath it to separate it from the content that follows.
+ */
+export function SectionHeader({
+  title,
+  subtitle,
+  count,
+  actions,
+}: {
+  title: string;
+  subtitle: string;
+  /** e.g. "4 of 8" — set in tabular figures so lists do not jitter */
+  count?: string;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-5 border-b border-line-subtle pb-7 md:flex-row md:items-end md:justify-between">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-baseline gap-3">
+          <h1 className="text-h2 text-fg-heading">{title}</h1>
+          {count && (
+            <span className="tabular text-body-sm text-fg-muted">{count}</span>
+          )}
+        </div>
+        <p className="measure mt-3 text-body text-fg-secondary">{subtitle}</p>
+      </div>
+      {actions && <div className="flex shrink-0 flex-wrap gap-3">{actions}</div>}
+    </div>
+  );
+}
+
+/**
  * Two-column working layout: content, then the utility rail.
  *
  * The rail comes SECOND in the DOM so a phone reads content first, and is
