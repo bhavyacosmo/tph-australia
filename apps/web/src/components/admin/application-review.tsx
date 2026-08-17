@@ -9,6 +9,7 @@ import { Field, Input, Select } from "@/components/ui/field";
 import { StatusChip } from "@/components/ui/status-chip";
 import { useJourneyStore } from "@/lib/store/journey-store";
 import { serviceFor } from "@/lib/mock/marketplace";
+import { monogram } from "@/lib/mock/media";
 import { formatDate, formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -85,22 +86,47 @@ export function ApplicationReview() {
                   )}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-overline uppercase text-fg-muted">
-                        {service.label}
-                      </p>
-                      <h3 className="mt-1.5 text-h4 text-fg-heading">
-                        {application.businessName}
-                      </h3>
-                      <p className="text-body-sm text-fg-secondary">
-                        {application.contactName}
-                        {application.area && ` · ${application.area}`}
-                      </p>
-                      <p className="mt-1 text-caption text-fg-muted">
-                        Applied {formatRelative(application.submittedAt)} ·{" "}
-                        {application.email}
-                        {application.phone && ` · ${application.phone}`}
-                      </p>
+                    <div className="flex min-w-0 items-start gap-4">
+                      {/* The photograph they submitted, if any. A plain <img>:
+                          it is a data URL from their own device, which the
+                          image optimiser cannot process. */}
+                      {application.photoUrl ? (
+                        <span className="size-14 shrink-0 overflow-hidden rounded-full bg-surface-sunken">
+                          {/* eslint-disable-next-line @next/next/no-img-element -- data URL */}
+                          <img
+                            src={application.photoUrl}
+                            alt=""
+                            aria-hidden="true"
+                            className="size-full object-cover"
+                          />
+                        </span>
+                      ) : (
+                        <span
+                          aria-hidden="true"
+                          className="grid size-14 shrink-0 place-items-center rounded-full bg-brand text-body font-semibold text-brand-fg"
+                        >
+                          {monogram(application.contactName)}
+                        </span>
+                      )}
+
+                      <div className="min-w-0">
+                        <p className="text-overline uppercase text-fg-muted">
+                          {service.label}
+                        </p>
+                        <h3 className="mt-1.5 text-h4 text-fg-heading">
+                          {application.businessName}
+                        </h3>
+                        <p className="text-body-sm text-fg-secondary">
+                          {application.contactName}
+                          {application.age && `, ${application.age}`}
+                          {application.area && ` · ${application.area}`}
+                        </p>
+                        <p className="mt-1 text-caption text-fg-muted">
+                          Applied {formatRelative(application.submittedAt)} ·{" "}
+                          {application.email}
+                          {application.phone && ` · ${application.phone}`}
+                        </p>
+                      </div>
                     </div>
 
                     <StatusChip
@@ -124,6 +150,64 @@ export function ApplicationReview() {
                     <p className="measure mt-4 border-t border-line-subtle pt-4 text-body-sm text-fg-secondary">
                       {application.approach}
                     </p>
+                  )}
+
+                  {/* Everything else they submitted, so a decision can be made
+                      from this card without opening anything. All of it is
+                      their own account of themselves. */}
+                  {(application.experience ||
+                    application.feeNote ||
+                    (application.services?.length ?? 0) > 0 ||
+                    (application.serviceAreas?.length ?? 0) > 0) && (
+                    <dl className="mt-4 grid gap-4 border-t border-line-subtle pt-4 sm:grid-cols-2">
+                      {application.experience && (
+                        <div>
+                          <dt className="text-caption uppercase tracking-wider text-fg-muted">
+                            Experience
+                          </dt>
+                          <dd className="mt-1 text-body-sm text-fg-secondary">
+                            {application.experience}
+                          </dd>
+                        </div>
+                      )}
+                      {application.feeNote && (
+                        <div>
+                          <dt className="text-caption uppercase tracking-wider text-fg-muted">
+                            Indicative fee
+                          </dt>
+                          <dd className="mt-1 text-body-sm text-fg-secondary">
+                            {application.feeNote}
+                          </dd>
+                        </div>
+                      )}
+                      {(application.services?.length ?? 0) > 0 && (
+                        <div className="sm:col-span-2">
+                          <dt className="text-caption uppercase tracking-wider text-fg-muted">
+                            Jobs they take on
+                          </dt>
+                          <dd className="mt-2 flex flex-wrap gap-1.5">
+                            {application.services?.map((s) => (
+                              <span
+                                key={s}
+                                className="rounded-full bg-surface-sunken px-2.5 py-1 text-caption text-fg-secondary"
+                              >
+                                {s}
+                              </span>
+                            ))}
+                          </dd>
+                        </div>
+                      )}
+                      {(application.serviceAreas?.length ?? 0) > 0 && (
+                        <div className="sm:col-span-2">
+                          <dt className="text-caption uppercase tracking-wider text-fg-muted">
+                            Suburbs covered
+                          </dt>
+                          <dd className="mt-1 text-body-sm text-fg-secondary">
+                            {application.serviceAreas?.join(" · ")}
+                          </dd>
+                        </div>
+                      )}
+                    </dl>
                   )}
 
                   {/* The claim, clearly labelled as a claim */}
@@ -263,7 +347,7 @@ export function ApplicationReview() {
                                   setReason("");
                                 }}
                               >
-                                Decline application
+                                Reject application
                               </Button>
                               <Button
                                 variant="tertiary"
@@ -286,14 +370,14 @@ export function ApplicationReview() {
                               onClick={() => setOpenId(application.id)}
                             >
                               <BadgeCheck aria-hidden="true" className="size-4" />
-                              Review and verify
+                              Approve
                             </Button>
                             <Button
                               variant="secondary"
                               onClick={() => setDeclining(application.id)}
                             >
                               <X aria-hidden="true" className="size-4" />
-                              Decline
+                              Reject
                             </Button>
                           </motion.div>
                         )}

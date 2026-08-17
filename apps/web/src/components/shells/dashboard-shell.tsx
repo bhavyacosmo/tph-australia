@@ -10,6 +10,7 @@ import { TphLogo } from "@/components/brand/tph-logo";
 import { ThemeToggle } from "@/components/shells/theme-toggle";
 import { useJourneyStore } from "@/lib/store/journey-store";
 import { formatRelative } from "@/lib/format";
+import { monogram } from "@/lib/mock/media";
 import { ROLE_LABEL } from "@/lib/mock/accounts";
 import { isActiveSection, ROLE_HOME, SIDEBAR } from "@/lib/nav";
 import { cn } from "@/lib/utils";
@@ -146,8 +147,15 @@ function Sidebar({ role }: { role: Role }) {
   const params = useSearchParams();
   const search = params.toString();
   const reduce = useReducedMotion();
-  const { session, journey, trustLinks, myInterests, applications } =
-    useJourneyStore();
+  const {
+    session,
+    journey,
+    trustLinks,
+    myInterests,
+    applications,
+    profile,
+    displayName,
+  } = useJourneyStore();
 
   const badges: Record<NonNullable<(typeof SIDEBAR)[Role][number]["badge"]>, number> =
     {
@@ -160,17 +168,17 @@ function Sidebar({ role }: { role: Role }) {
   return (
     <div className="border-b border-line-subtle py-6 lg:border-b-0 lg:border-r lg:py-10 lg:pr-8">
       <div className="lg:sticky lg:top-24">
-        {/* Identity block. The reference puts who-you-are above the nav. */}
+        {/* Identity block. The reference puts who-you-are above the nav.
+            Their own name and photograph, from the profile they completed —
+            not the demo account's. */}
         <div className="flex items-center gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand text-body-sm font-semibold text-brand-fg">
-            {(session?.name ?? "?").charAt(0)}
-          </span>
+          <Avatar name={displayName} photoUrl={profile?.photoUrl ?? null} />
           <div className="min-w-0">
             <p className="truncate text-body-sm font-semibold text-fg-heading">
-              {session?.name ?? ROLE_LABEL[role]}
+              {displayName}
             </p>
             <p className="truncate text-caption text-fg-muted">
-              {session?.context ?? ROLE_LABEL[role]}
+              {profile?.phone ?? session?.context ?? ROLE_LABEL[role]}
             </p>
           </div>
         </div>
@@ -224,6 +232,44 @@ function Sidebar({ role }: { role: Role }) {
         <SidebarFooter role={role} lastSavedAt={journey.lastSavedAt} />
       </div>
     </div>
+  );
+}
+
+/**
+ * The signed-in person's photograph, or their initials.
+ *
+ * A plain `<img>`, not `next/image`: the source is a data URL the person chose
+ * on this device, and the optimiser cannot process one.
+ */
+function Avatar({
+  name,
+  photoUrl,
+  className = "size-10 rounded-xl",
+}: {
+  name: string;
+  photoUrl: string | null;
+  className?: string;
+}) {
+  if (photoUrl) {
+    return (
+      <span
+        className={cn("shrink-0 overflow-hidden bg-surface-sunken", className)}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- data URL */}
+        <img src={photoUrl} alt="" aria-hidden="true" className="size-full object-cover" />
+      </span>
+    );
+  }
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "grid shrink-0 place-items-center bg-brand text-body-sm font-semibold text-brand-fg",
+        className,
+      )}
+    >
+      {monogram(name)}
+    </span>
   );
 }
 
@@ -404,7 +450,8 @@ function NotificationBell({ role, onDark }: { role: Role; onDark: boolean }) {
  */
 function AccountMenu({ role, onDark }: { role: Role; onDark: boolean }) {
   const router = useRouter();
-  const { session, signOut, resetDemo } = useJourneyStore();
+  const { session, signOut, resetDemo, profile, displayName } =
+    useJourneyStore();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
@@ -439,18 +486,28 @@ function AccountMenu({ role, onDark }: { role: Role; onDark: boolean }) {
             : "text-fg-secondary hover:bg-surface-sunken hover:text-fg",
         )}
       >
-        <span
-          aria-hidden="true"
-          className={cn(
-            "grid size-7 place-items-center rounded-full text-caption font-semibold",
-            onDark ? "bg-white/15 text-white" : "bg-brand text-brand-fg",
-          )}
-        >
-          {(session?.name ?? "?").charAt(0)}
-        </span>
-        <span className="hidden sm:inline">
-          {(session?.name ?? "").split(" ")[0]}
-        </span>
+        {profile?.photoUrl ? (
+          <span className="size-7 shrink-0 overflow-hidden rounded-full bg-surface-sunken">
+            {/* eslint-disable-next-line @next/next/no-img-element -- data URL */}
+            <img
+              src={profile.photoUrl}
+              alt=""
+              aria-hidden="true"
+              className="size-full object-cover"
+            />
+          </span>
+        ) : (
+          <span
+            aria-hidden="true"
+            className={cn(
+              "grid size-7 place-items-center rounded-full text-caption font-semibold",
+              onDark ? "bg-white/15 text-white" : "bg-brand text-brand-fg",
+            )}
+          >
+            {displayName.charAt(0)}
+          </span>
+        )}
+        <span className="hidden sm:inline">{displayName.split(" ")[0]}</span>
       </button>
 
       <AnimatePresence>
@@ -465,10 +522,10 @@ function AccountMenu({ role, onDark }: { role: Role; onDark: boolean }) {
           >
             <div className="border-b border-line-subtle px-4 py-3">
               <p className="text-body-sm font-semibold text-fg-heading">
-                {session?.name}
+                {displayName}
               </p>
               <p className="truncate text-caption text-fg-muted">
-                {session?.context}
+                {profile?.phone ?? session?.context}
               </p>
               <p className="mt-2 inline-flex rounded-full bg-surface-sunken px-2 py-0.5 text-[0.6875rem] font-medium uppercase tracking-wider text-fg-muted">
                 {ROLE_LABEL[role]}

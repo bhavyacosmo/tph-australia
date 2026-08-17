@@ -217,10 +217,23 @@ export interface Professional {
   feeNote: string | null;
   serviceAreas: string[];
   /**
-   * Swappable media. Empty in the prototype — we do not fabricate photographs
-   * of people. Drop real headshots into /public/img/pro/ and set this.
+   * Swappable media. Drop a photograph into /public/img/pro/<id>.jpg and point
+   * this at it.
    */
   photoUrl: string | null;
+  /**
+   * Where the subject sits in the frame, as a CSS `object-position`.
+   *
+   * Occupational photographs are landscape and the card's photo panel is
+   * portrait, so `object-cover` has to discard most of the width. Centring by
+   * default would crop the person out of half of these — the pest inspector is
+   * hard left, the conveyancer is right of centre. This is image metadata, not
+   * styling, which is why it lives on the record beside the file it describes.
+   *
+   * Defaults to "50% 30%" when absent: horizontally centred, biased upward,
+   * because that is where a head usually is.
+   */
+  photoPosition?: string;
 }
 
 /* ----------------------------------------------------------------- listings */
@@ -350,6 +363,24 @@ export interface ProfessionalApplication {
   /** Set by an admin when they record a check — PRO-05 */
   verification: { what: string; checkedOn: string; by: string } | null;
   declineReason: string | null;
+
+  /* ------------------- supplied by the professional's own onboarding, Aug 2026 */
+  /*
+    Optional so the two seeded applications need no rewriting. Everything here
+    is the APPLICANT'S OWN ACCOUNT of themselves — an admin reads it to decide,
+    and none of it is ever presented to a buyer as something TPH confirmed.
+  */
+  /** Data URL, downscaled in the browser. Null when they skipped it. */
+  photoUrl?: string | null;
+  /** Free text, e.g. "38". Never used in a calculation or shown to a buyer. */
+  age?: string | null;
+  /** In their words — "12 years · 4,000+ Brisbane inspections". */
+  experience?: string;
+  /** The specific jobs they take on, as chips. */
+  services?: string[];
+  serviceAreas?: string[];
+  /** Indicative fee, if they publish one. */
+  feeNote?: string | null;
 }
 
 /* ------------------------------------------------ professional admin overrides */
@@ -598,6 +629,60 @@ export interface PlatformEvent {
     | "property";
 }
 
+/* --------------------------------------------------------- account profiles */
+
+/**
+ * Who the signed-in person actually is.
+ *
+ * Until now every role displayed a seeded name, so three different reviewers
+ * demonstrating the prototype all appeared to be Barbara Nguyen. A person now
+ * gives their own details once, after their first sign-in, and the whole
+ * product addresses them by that name.
+ *
+ * ⚠️ STILL MOCK. This is a localStorage record keyed by role, not an account.
+ * When a real backend lands, the mobile number becomes the identifier and this
+ * whole object is what the server returns — which is why `phone` is stored on
+ * it rather than derived.
+ *
+ * `photoUrl` is a **data URL**, downscaled in the browser to 256px before it is
+ * stored. That is a deliberate choice over "upload isn't wired": a file picker
+ * that visibly does nothing teaches a reviewer to distrust the prototype, and
+ * 256px of JPEG fits inside the localStorage budget with room to spare. No file
+ * leaves the device, because there is nowhere for it to go.
+ */
+export type SellerKind = "owner" | "agent";
+export type AgentStructure = "individual" | "team";
+export type SellerDealsIn = "sell" | "rent" | "both";
+
+export interface SellerDetails {
+  kind: SellerKind;
+  /** Agents only — null for an owner selling their own home. */
+  structure: AgentStructure | null;
+  teamName: string | null;
+  /** Free text, e.g. "6 years". Never used in a calculation. */
+  yearsExperience: string | null;
+  dealsIn: SellerDealsIn;
+}
+
+export interface AccountProfile {
+  role: Role;
+  fullName: string;
+  phone: string;
+  email: string;
+  /** Data URL or null. See the note above. */
+  photoUrl: string | null;
+  completedAt: string;
+  /** Present only on a seller profile. */
+  seller?: SellerDetails;
+  /**
+   * Present only on a professional profile — the application they submitted.
+   * The professional's public listing does not exist until an admin approves
+   * that application, which is what keeps an unverified professional out of the
+   * directory and out of Trust Link.
+   */
+  professionalApplicationId?: string;
+}
+
 /* ------------------------------------------------------------ platform users */
 
 /**
@@ -680,6 +765,11 @@ export interface AppState {
   interests: Interest[];
   users: PlatformUser[];
   platformEvents: PlatformEvent[];
+  /**
+   * Who each role is, once they have told us. Absent until they complete
+   * onboarding, which is exactly what the post-sign-in gate tests.
+   */
+  profiles: Partial<Record<Role, AccountProfile>>;
   /** FR-05-06 · RDY-06 — newest first, superseded assessments retained */
   readiness: ReadinessAssessment[];
   milestones: Milestone[];

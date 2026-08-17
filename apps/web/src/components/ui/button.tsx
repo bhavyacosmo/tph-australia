@@ -100,11 +100,23 @@ function Button({
   loading = false,
   disabled,
   children,
+  /*
+    Defaults to "button", NOT the DOM's "submit".
+
+    A `<button>` with no type inside a form submits it. That is almost never
+    what a button carrying an `onClick` means, and it caused a real defect: the
+    Filters control inside the search form silently submitted the search and
+    navigated to the results page instead of opening its panel. The union type
+    above already forces `type="submit"` to be written out where it IS meant,
+    so defaulting the other way is safe and removes the whole class of bug.
+  */
+  type = "button",
   ...props
 }: ButtonProps) {
   return (
     <button
       data-slot="button"
+      type={type}
       aria-busy={loading || undefined}
       disabled={disabled || loading}
       className={cn(buttonVariants({ variant, size, fullWidth }), className)}

@@ -1,5 +1,4 @@
 import {
-  Activity,
   BadgeCheck,
   Briefcase,
   CheckCircle2,
@@ -90,7 +89,9 @@ const SELLER: NavSection[] = [
     icon: MessageSquare,
     badge: "new-interest",
   },
-  { label: "Property activity", href: "/seller/activity", icon: Activity },
+  /* "Property activity" removed on client instruction, 17 Aug 2026 — the
+     seller overview already carries a Recent list, and a whole section for it
+     was more navigation than the content justified. */
   { label: "Profile", href: "/seller/profile", icon: UserCog },
 ];
 
@@ -144,7 +145,10 @@ const ADMIN: NavSection[] = [
   },
   { label: "Properties", href: "/admin/properties", icon: Map },
   { label: "Trust Links", href: "/admin/trust-links", icon: Link2 },
-  { label: "Activity", href: "/admin/activity", icon: Activity },
+  /* "Activity" removed on client instruction, 17 Aug 2026. The operations log
+     still exists and still records everything — the admin overview shows the
+     most recent entries, and the notification bell carries the rest. What went
+     is the dedicated page, not the audit trail. */
   { label: "Suspended", href: "/admin/users?status=suspended", icon: ShieldCheck },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];

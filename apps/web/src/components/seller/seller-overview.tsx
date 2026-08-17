@@ -22,7 +22,8 @@ import { LISTING_STATUS } from "@/components/seller/listing-status";
  * tab changes this number in the other.
  */
 export function SellerOverview() {
-  const { myListings, myInterests, platformEvents, session } = useJourneyStore();
+  const { myListings, myInterests, platformEvents, displayName } =
+    useJourneyStore();
 
   const published = myListings.filter((l) => l.status === "published");
   const drafts = myListings.filter((l) => l.status === "draft");
@@ -38,7 +39,7 @@ export function SellerOverview() {
   return (
     <>
       <SectionHeader
-        title={`Hello, ${session?.name.split(" ")[0] ?? "there"}`}
+        title={`Hello, ${displayName.split(" ")[0]}`}
         subtitle="Your properties, and the buyers who have asked about them."
         actions={
           <ButtonLink href="/seller/list" variant="primary" size="md">

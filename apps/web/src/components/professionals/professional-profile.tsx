@@ -6,7 +6,8 @@ import { ArrowLeft, ArrowRight, Info, MapPin, ShieldOff } from "lucide-react";
 import { PublicShell } from "@/components/shells/public-shell";
 import { Container } from "@/components/ui/section";
 import { ButtonLink } from "@/components/ui/button";
-import { RailPanel } from "@/components/ui/page";
+import { EmptyState, RailPanel } from "@/components/ui/page";
+import { useJourneyStore } from "@/lib/store/journey-store";
 import { Reveal } from "@/components/motion/reveal";
 import {
   ProfessionalAvatar,
@@ -29,10 +30,34 @@ import type { Professional } from "@/lib/mock/types";
  * (transcript L197-203), and this screen holds that line.
  */
 export function ProfessionalProfile({
-  professional,
+  professionalId,
 }: {
-  professional: Professional;
+  professionalId: string;
 }) {
+  /* Resolved from the store: a professional an admin approved in this session
+     is not in the seed module, and a suspended one must 404 rather than linger
+     at a shareable URL. */
+  const { getProfessional } = useJourneyStore();
+  const professional = getProfessional(professionalId);
+
+  if (!professional) {
+    return (
+      <PublicShell>
+        <Container className="py-20">
+          <EmptyState
+            title="That profile isn't available"
+            body="It may have been withdrawn, or the link may be out of date."
+            action={
+              <ButtonLink href={routes.professionals()} variant="primary" size="md">
+                See all professionals
+              </ButtonLink>
+            }
+          />
+        </Container>
+      </PublicShell>
+    );
+  }
+
   const service = serviceFor(professional.serviceKey);
 
   return (

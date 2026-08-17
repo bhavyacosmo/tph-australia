@@ -163,9 +163,11 @@ export default function ProfessionalsPage() {
         )}
 
         <p className="mt-14 border-t border-line-subtle pt-6 text-body-sm text-fg-muted">
-          Demonstration profiles for this prototype. Headshots are not shown
-          because we don&apos;t hold photographs of these professionals yet — the
-          card is built to take one.
+          Demonstration profiles for this prototype. The portraits are
+          computer-generated — none of these people exist — and every profile
+          here has been approved by The Property Helpline. A professional who
+          has applied but not yet been checked does not appear on this page at
+          all.
         </p>
       </Container>
     </PublicShell>

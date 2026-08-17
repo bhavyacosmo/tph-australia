@@ -25,7 +25,8 @@ import { formatDate, formatPrice } from "@/lib/format";
  */
 export default function PropIdAccountPage() {
   const router = useRouter();
-  const { state, session, journey, signOut, resetDemo } = useJourneyStore();
+  const { state, session, journey, signOut, resetDemo, displayName } =
+    useJourneyStore();
 
   return (
     <div>
@@ -45,7 +46,7 @@ export default function PropIdAccountPage() {
               Your details
             </h2>
             <dl className="mt-5 divide-y divide-line-subtle border-y border-line-subtle">
-              <Row label="Name" value={session?.name ?? `${state.user.firstName} ${state.user.lastName}`} />
+              <Row label="Name" value={displayName} />
               <Row
                 label="Email"
                 value={state.user.email || "Not recorded in this prototype"}

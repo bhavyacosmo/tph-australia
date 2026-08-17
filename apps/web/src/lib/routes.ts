@@ -50,7 +50,6 @@ export const routes = {
   sellerProperties: () => "/seller/properties",
   sellerList: () => "/seller/list",
   sellerInterest: () => "/seller/interest",
-  sellerActivity: () => "/seller/activity",
   sellerProfile: () => "/seller/profile",
 
   admin: () => "/admin",
@@ -59,7 +58,6 @@ export const routes = {
   adminVerification: () => "/admin/verification",
   adminProperties: () => "/admin/properties",
   adminTrustLinks: () => "/admin/trust-links",
-  adminActivity: () => "/admin/activity",
   adminSettings: () => "/admin/settings",
 
   propId: () => "/prop-id",
