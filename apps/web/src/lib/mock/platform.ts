@@ -295,6 +295,57 @@ export const NEARBY_OPTIONS = [
   "Hospital or medical centre",
 ];
 
+/* ------------------------------------------- professional onboarding options */
+
+/**
+ * The specific jobs a professional can say they take on, per service.
+ *
+ * These are the applicant's own claims about their work — they are not a
+ * qualification, and nothing here is checked. Only the four Stage 1 services
+ * are listed ([SG] p.5); adding a trade needs its own verification rule before
+ * it can appear.
+ */
+export const SERVICE_TASKS: Record<string, string[]> = {
+  building_inspector: [
+    "Pre-purchase building inspection",
+    "Structural assessment",
+    "Thermal imaging",
+    "Handover / new build inspection",
+    "Defect report",
+    "Pool safety inspection",
+  ],
+  pest_inspector: [
+    "Timber pest inspection (AS 4349.3)",
+    "Termite management plan",
+    "Combined building and pest",
+    "Post-treatment inspection",
+  ],
+  conveyancer: [
+    "Contract review before signing",
+    "Special conditions drafting",
+    "Title and council searches",
+    "Settlement",
+    "Off-the-plan purchases",
+  ],
+  buyers_agent: [
+    "Full search and shortlist",
+    "Negotiation only",
+    "Auction bidding",
+    "Due diligence coordination",
+    "Interstate / relocation buyers",
+  ],
+};
+
+/** What an applicant can say they hold. Recorded as a claim, never as fact. */
+export const CREDENTIAL_OPTIONS = [
+  "QBCC licence",
+  "Practising certificate",
+  "Real estate agent licence",
+  "Pest management technician licence",
+  "Professional indemnity insurance",
+  "Business registration (ABN)",
+];
+
 export const FEATURE_OPTIONS = [
   "Air conditioning",
   "Built-in wardrobes",

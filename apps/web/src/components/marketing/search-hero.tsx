@@ -144,7 +144,10 @@ export function SearchHero() {
                 it. A search control is a form, and forms read from the left
                 edge; centring the tabs over a 1200px card leaves the eye with
                 nowhere to start. */}
-            <PropertySearchBar tone="page" align="left" />
+            {/* `wizard`: on the homepage there are no results to narrow, so
+                Filters opens Home Compass one question at a time rather than
+                dropping three selects out of the bar. */}
+            <PropertySearchBar tone="page" align="left" filterMode="wizard" />
 
             {/* Suburb shortcuts and the privacy assurance share one row. Two
                 stacked rows cost ~100px, which is precisely the budget the

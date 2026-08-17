@@ -16,8 +16,9 @@ import type { Role } from "@/lib/mock/types";
  * src/lib/mock/accounts.ts.
  *
  * Behaviour:
- *   · signed out            → /sign-in, remembering where they were headed
- *   · signed in, wrong role → their own home, rather than a dead end
+ *   · signed out             → /sign-in, remembering where they were headed
+ *   · signed in, wrong role  → their own home, rather than a dead end
+ *   · signed in, no profile  → /welcome, to complete it first
  *
  * Redirecting rather than rendering an error is deliberate: in the demo, landing
  * on "you don't have access" reads as a broken prototype, whereas arriving at
@@ -32,9 +33,15 @@ export function RequireRole({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { session } = useJourneyStore();
+  const { session, needsOnboarding } = useJourneyStore();
 
-  const allowed = session?.role === role;
+  /*
+    Onboarding is part of the gate, not a separate one. A seller who has not
+    said who they are has no name to put on a listing, and a professional who
+    has not submitted a profile has nothing for an admin to approve — so
+    neither can use the surface behind this until they have.
+  */
+  const allowed = session?.role === role && !needsOnboarding;
 
   useEffect(() => {
     if (allowed) return;
@@ -43,8 +50,12 @@ export function RequireRole({
       router.replace(`/sign-in?next=${encodeURIComponent(pathname)}`);
       return;
     }
+    if (needsOnboarding) {
+      router.replace("/welcome");
+      return;
+    }
     router.replace(HOME_FOR[session.role]);
-  }, [allowed, session, pathname, router]);
+  }, [allowed, session, needsOnboarding, pathname, router]);
 
   if (!allowed) {
     /* A brief hold while the redirect runs. The store is already hydrated by

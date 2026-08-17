@@ -171,26 +171,18 @@ export default function AdminOverviewPage() {
         </section>
       )}
 
-      {/* ---------------------------------------------------------- activity */}
+      {/* ----------------------------------------------------------- activity
+          The dedicated Activity page was removed on 17 August 2026. The log
+          itself is untouched — it still records every verification, suspension
+          and listing change — so this section now shows more of it rather than
+          linking away to a page that no longer exists. */}
       <section aria-labelledby="recent" className="mt-12">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <h2 id="recent" className="text-h3 text-fg-heading">
-            Recent platform activity
-          </h2>
-          <Link
-            href="/admin/activity"
-            className="group flex min-h-11 items-center gap-1.5 text-body-sm font-medium text-fg-link underline-offset-4 hover:underline"
-          >
-            See all
-            <ArrowRight
-              aria-hidden="true"
-              className="size-3.5 transition-transform duration-[var(--duration-base)] ease-[var(--ease-out-expo)] group-hover:translate-x-0.5"
-            />
-          </Link>
-        </div>
+        <h2 id="recent" className="text-h3 text-fg-heading">
+          Recent platform activity
+        </h2>
 
         <ul className="mt-5 divide-y divide-line-subtle overflow-hidden rounded-2xl border border-line-subtle bg-surface-card">
-          {platformEvents.slice(0, 8).map((event) => (
+          {platformEvents.slice(0, 12).map((event) => (
             <li key={event.id} className="flex flex-wrap gap-x-4 gap-y-1 px-5 py-3.5">
               <span className="min-w-0 flex-1 text-body-sm text-fg">
                 {event.what}

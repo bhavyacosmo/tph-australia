@@ -163,6 +163,12 @@ export function SignIn({
         setPending(false);
         return;
       }
+      /* A first-time person completes their profile before anything else —
+         including before an intended `next`, which they can reach afterwards. */
+      if (result.needsOnboarding) {
+        router.push("/welcome");
+        return;
+      }
       router.push(next && next.startsWith("/") ? next : HOME_FOR[result.role]);
     }, 550);
   };

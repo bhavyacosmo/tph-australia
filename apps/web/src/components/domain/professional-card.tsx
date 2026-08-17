@@ -67,18 +67,28 @@ export function VerificationBadge({
 }
 
 /**
- * A portrait panel — half the card, full height.
+ * A portrait panel — part of the card, full height.
  *
- * ⚠️ The portraits are STYLEGAN-GENERATED. Nobody in them exists. That is a
- * deliberate choice over stock photography: putting a real person's face beside
- * an invented business name, on a demo the client may show onward, implies an
- * endorsement that person never gave. Swap them for the founding professionals'
- * own headshots — with permission — before anything ships.
+ * The photographs are CLIENT-SUPPLIED occupational shots: the inspector on
+ * site, the conveyancer at her desk, the buyer's agent outside a home. They
+ * replaced generated head crops, which the client rightly said read as mugshots
+ * rather than as professionals.
  *
- * `scale-[1.18] origin-top` is load-bearing, not decoration: the generator
- * stamps "StyleGAN2 (Karras et al.)" into the bottom-right corner, and scaling
- * up from the top pushes that corner out of frame. It also crops to the upper
- * portion, which is where a face wants to sit in a tall panel.
+ * Two consequences for this component:
+ *
+ *   · **No scaling.** The previous `scale-[1.10]` existed only to push a
+ *     generator watermark out of frame. There is no watermark now, so the
+ *     transform is gone and the photograph is shown at its natural crop.
+ *   · **Focal point per image.** These are landscape sources in a portrait
+ *     panel, so `object-cover` discards most of the width — and the subject is
+ *     not centred in most of them. `photoPosition` on the record names where
+ *     the person actually is; centring would crop the pest inspector out of his
+ *     own photograph entirely.
+ *
+ * ⚠️ These are real people in supplied stock imagery, shown beside invented
+ * business names. Fine for a prototype; confirm the licence covers the client's
+ * intended use before this is shown publicly, and replace them with the
+ * founding professionals' own photographs before launch.
  */
 export function ProfessionalPortrait({
   professional,
@@ -100,12 +110,23 @@ export function ProfessionalPortrait({
           alt=""
           aria-hidden="true"
           fill
-          /* The panel is ~217px wide, but `object-cover` on a taller box scales
-             by HEIGHT and the 1.18 crop scales again — so the intrinsic width
-             actually needed is ~340px, not the panel width. Understating this
-             is what makes a portrait look soft. */
-          sizes="(max-width: 640px) 50vw, 340px"
-          className="scale-[1.18] object-cover object-top origin-top"
+          /*
+            480px, not the ~186px the panel is wide.
+
+            `object-cover` fitting a LANDSCAPE source into a PORTRAIT panel
+            scales by height, so a 1200x630 photograph is rendered about 464px
+            wide with most of it cropped away. Asking for the panel width served
+            a 260px file upscaled 1.8x, which is what made these look soft.
+          */
+          sizes="(max-width: 640px) 60vw, 480px"
+          className="object-cover"
+          style={{ objectPosition: professional.photoPosition ?? "50% 30%" }}
+        />
+        {/* Blends the photograph into the card rather than butting it against
+            a hard edge. Purely presentational. */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-surface-card/70 to-transparent"
         />
       </div>
     );

@@ -39,12 +39,24 @@ const CONTACT_OPTIONS = [
   },
 ];
 
+const KIND_LABEL = {
+  owner: "Property owner",
+  agent: "Agent",
+} as const;
+
+const DEALS_LABEL = {
+  sell: "Sales only",
+  rent: "Rentals only",
+  both: "Sales and rentals",
+} as const;
+
 export function SellerProfile() {
-  const { session, users, myListings, myInterests, updateListing } =
+  const { session, users, myListings, myInterests, updateListing, profile } =
     useJourneyStore();
 
   const record = users.find((u) => u.id === DEMO_SELLER_ID);
   const current = myListings[0]?.sellerContact ?? "through_tph";
+  const seller = profile?.seller;
 
   const [choice, setChoice] = useState(current);
   const [saved, setSaved] = useState(false);
@@ -69,12 +81,42 @@ export function SellerProfile() {
             <h2 id="account" className="text-h3 text-fg-heading">
               Account
             </h2>
+            {/* Their photograph, where they gave us one. */}
+            {profile?.photoUrl && (
+              <div className="mt-5 flex items-center gap-4">
+                <span className="size-16 shrink-0 overflow-hidden rounded-full bg-surface-sunken">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- data URL */}
+                  <img
+                    src={profile.photoUrl}
+                    alt=""
+                    aria-hidden="true"
+                    className="size-full object-cover"
+                  />
+                </span>
+                <p className="text-body-sm text-fg-muted">
+                  Shown beside your name when a buyer enquires.
+                </p>
+              </div>
+            )}
+
             <dl className="mt-5 divide-y divide-line-subtle overflow-hidden rounded-2xl border border-line-subtle bg-surface-card">
               {[
-                ["Name", session?.name ?? "—"],
-                ["Mobile", record?.phone ?? "—"],
-                ["Email", record?.email ?? "—"],
-                ["Area", session?.context ?? "—"],
+                ["Name", profile?.fullName ?? session?.name ?? "—"],
+                ["Mobile", profile?.phone ?? record?.phone ?? "—"],
+                ["Email", profile?.email || record?.email || "—"],
+                ["Selling as", seller ? KIND_LABEL[seller.kind] : "—"],
+                ...(seller?.kind === "agent"
+                  ? ([
+                      [
+                        "Structure",
+                        seller.structure === "team"
+                          ? `Team${seller.teamName ? ` · ${seller.teamName}` : ""}`
+                          : "Working independently",
+                      ],
+                      ["Experience", seller.yearsExperience ?? "Not given"],
+                    ] as [string, string][])
+                  : []),
+                ["Lists", seller ? DEALS_LABEL[seller.dealsIn] : "—"],
                 [
                   "Joined",
                   record ? formatDate(record.joinedAt) : "—",
@@ -92,9 +134,9 @@ export function SellerProfile() {
               ))}
             </dl>
             <p className="mt-3 text-body-sm text-fg-muted">
-              These come from the demonstration account and can&apos;t be edited
-              here — there is no account service behind this prototype yet, and a
-              field that saves nowhere is worse than no field.
+              These are what you entered when you set up your profile. Editing
+              them isn&apos;t built yet — there is no account service behind this
+              prototype, and a field that saves nowhere is worse than no field.
             </p>
           </section>
 

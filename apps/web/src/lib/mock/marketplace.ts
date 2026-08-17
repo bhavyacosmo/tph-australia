@@ -104,6 +104,8 @@ export const PROFESSIONALS: Professional[] = [
     feeNote: "Indicative $550–$690 depending on property size",
     serviceAreas: ["Carindale", "Camp Hill", "Coorparoo", "Mansfield"],
     photoUrl: "/img/pro/pro-buildcheck.jpg",
+    /* Hi-vis on site; subject centre-right, head high in a 1200x630 frame. */
+    photoPosition: "56% 26%",
   },
   {
     id: "pro-truline",
@@ -119,6 +121,8 @@ export const PROFESSIONALS: Professional[] = [
     feeNote: "Indicative $600 flat for homes under 350m²",
     serviceAreas: ["Ashgrove", "Paddington", "Windsor", "Clayfield"],
     photoUrl: "/img/pro/pro-truline.jpg",
+    /* Inspector with a clipboard; subject left of centre in a square frame. */
+    photoPosition: "34% 28%",
   },
   {
     id: "pro-clearpest",
@@ -134,6 +138,8 @@ export const PROFESSIONALS: Professional[] = [
     feeNote: "Indicative $340, or $180 when combined with a building inspection",
     serviceAreas: ["Greater Brisbane"],
     photoUrl: "/img/pro/pro-clearpest.jpg",
+    /* Torch in a roof space; subject hard left, so centring loses the person. */
+    photoPosition: "30% 38%",
   },
   {
     id: "pro-ashgrove-law",
@@ -149,6 +155,8 @@ export const PROFESSIONALS: Professional[] = [
     feeNote: "Fixed fee from $1,450 plus disbursements",
     serviceAreas: ["Greater Brisbane", "Ipswich"],
     photoUrl: "/img/pro/pro-ashgrove-law.jpg",
+    /* Office, on the phone; subject right of centre. */
+    photoPosition: "64% 30%",
   },
   {
     id: "pro-meridian-legal",
@@ -180,6 +188,8 @@ export const PROFESSIONALS: Professional[] = [
     feeNote: "Engagement fee plus success fee — quoted per brief",
     serviceAreas: ["Greater Brisbane"],
     photoUrl: "/img/pro/pro-kerbside.jpg",
+    /* Suit, outside a home; subject left of centre. */
+    photoPosition: "34% 30%",
   },
   {
     id: "pro-eastside-buyers",

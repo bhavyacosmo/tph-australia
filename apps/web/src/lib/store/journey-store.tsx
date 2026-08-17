@@ -40,6 +40,7 @@ import {
   type ReadinessAssessment,
 } from "@/lib/mock/readiness";
 import type {
+  AccountProfile,
   ActivityEntry,
   AppState,
   Comparison,
@@ -94,7 +95,11 @@ import type {
   produce a state with no `listings` array, and every search screen would be
   empty with no clue why. A new key is the cheap, honest migration.
 */
-const STORAGE_KEY = "tph.prototype.v2";
+/*
+  v3: account profiles. A v2 blob has no `profiles` key, so every role would
+  look permanently onboarded — the opposite of the behaviour this release adds.
+*/
+const STORAGE_KEY = "tph.prototype.v3";
 
 /** Platform state shared by all four roles. Identical in seed and fresh. */
 function platformSeed() {
@@ -104,6 +109,13 @@ function platformSeed() {
     interests: SEED_INTERESTS,
     users: SEED_USERS,
     platformEvents: SEED_PLATFORM_EVENTS,
+    /*
+      Deliberately EMPTY. Every consumer role starts un-onboarded, so a reviewer
+      signing in as a seller or professional meets the profile step the client
+      asked for rather than someone else's seeded identity. Admin is internal
+      and never onboards.
+    */
+    profiles: {} as Partial<Record<Role, AccountProfile>>,
   };
 }
 
@@ -242,7 +254,9 @@ interface JourneyStore {
    */
   signIn: (
     identifier: string,
-  ) => { ok: true; role: Role } | { ok: false; message: string };
+  ) =>
+    | { ok: true; role: Role; needsOnboarding: boolean }
+    | { ok: false; message: string };
   signOut: () => void;
 
   /** Save a demo listing into the user's own shortlist. */
@@ -359,6 +373,24 @@ interface JourneyStore {
 
   /** Cross-role operations log. Distinct from the buyer's own `activity`. */
   platformEvents: PlatformEvent[];
+
+  /* ------------------------------------------- account profiles, Aug 2026 */
+
+  /** The signed-in role's own profile. Undefined until they complete it. */
+  profile: AccountProfile | undefined;
+  /**
+   * True when the signed-in role must complete onboarding before using the
+   * product. Admin is internal and never onboards.
+   */
+  needsOnboarding: boolean;
+  /** What to call the signed-in person. Their own name, never the seed's. */
+  displayName: string;
+  saveProfile: (
+    input: Omit<AccountProfile, "role" | "completedAt">,
+  ) => void;
+
+  /** The application the signed-in professional submitted, if any. */
+  myApplication: ProfessionalApplication | undefined;
 
   /* save boundary — FR-01-15, ENT-03 */
   hasPropId: boolean;
@@ -510,6 +542,11 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
     (id: string) => allProfessionals.find((p) => p.id === id),
     [allProfessionals],
   );
+
+  /** The signed-in role's own profile, or undefined if they have not onboarded. */
+  const currentProfile = state.session
+    ? state.profiles[state.session.role]
+    : undefined;
 
   const currentReadiness = useMemo(
     () =>
@@ -907,9 +944,14 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
         setState((prev) => ({
           ...prev,
           session,
-          /* The buyer experience addresses the signed-in person by name. */
+          /*
+            The buyer experience addresses the signed-in person by name — their
+            OWN name once they have given it. Signing in no longer stamps the
+            demo account's name over a completed profile, which is what made
+            every reviewer appear to be Barbara Nguyen.
+          */
           user:
-            account.role === "buyer"
+            account.role === "buyer" && !prev.profiles.buyer
               ? {
                   ...prev.user,
                   firstName: account.name.split(" ")[0],
@@ -929,7 +971,18 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
           ].slice(0, 60),
         }));
 
-        return { ok: true as const, role: account.role };
+        /*
+          Told to the caller so the sign-in screen can route straight to
+          /welcome. Letting it push the dashboard and having `RequireRole`
+          bounce back would work, but the reviewer sees a flash of a dashboard
+          belonging to someone who does not exist yet.
+        */
+        return {
+          ok: true as const,
+          role: account.role,
+          needsOnboarding:
+            account.role !== "admin" && !state.profiles[account.role],
+        };
       },
 
       /** Ends the demo session. Journey data is deliberately kept, so signing
@@ -1376,11 +1429,19 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
           contactName: application.contactName,
           area: application.area,
           approach: application.approach,
-          experience: "Recently joined The Property Helpline",
+          /* Their own words where they gave them; ours where they did not.
+             Never a rating or a review count — this product has neither. */
+          experience:
+            application.experience?.trim() ||
+            "Recently joined The Property Helpline",
+          /* The ONE field the applicant cannot influence. */
           verification: { what, checkedOn },
-          feeNote: null,
-          serviceAreas: [application.area],
-          photoUrl: null,
+          feeNote: application.feeNote ?? null,
+          serviceAreas:
+            application.serviceAreas && application.serviceAreas.length > 0
+              ? application.serviceAreas
+              : [application.area],
+          photoUrl: application.photoUrl ?? null,
         };
 
         commit(
@@ -1508,11 +1569,22 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
 
       allProfessionals,
 
+      /*
+        The signed-in professional's PUBLISHED listing — which exists only once
+        an admin has approved their application. Before that this is undefined,
+        and the professional's own screens say they are awaiting verification
+        rather than showing them a profile buyers cannot see.
+
+        It resolves through the application id, not by matching names: a name
+        match would silently hand a new professional somebody else's seeded
+        listing, which is precisely the bug this release exists to remove.
+      */
       myProfessional:
-        state.session?.role === "professional"
+        state.session?.role === "professional" &&
+        currentProfile?.professionalApplicationId
           ? allProfessionals.find(
-              (p) => p.contactName === state.session?.name,
-            ) ?? allProfessionals[0]
+              (p) => p.id === `pro-${currentProfile.professionalApplicationId}`,
+            )
           : undefined,
 
       /**
@@ -1539,7 +1611,7 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
           undefined,
           {
             actorRole: "professional",
-            actorName: state.session?.name ?? pro?.name ?? "A professional",
+            actorName: currentProfile?.fullName ?? pro?.name ?? "A professional",
             what: `Updated the profile for ${pro?.name ?? id}`,
             kind: "account",
           },
@@ -1576,7 +1648,7 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
           ...input,
           id,
           sellerId: DEMO_SELLER_ID,
-          sellerName: state.session?.name ?? "Seller",
+          sellerName: currentProfile?.fullName ?? state.session?.name ?? "Seller",
           createdAt: now,
         };
 
@@ -1585,7 +1657,7 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
           undefined,
           {
             actorRole: "seller",
-            actorName: state.session?.name ?? "A seller",
+            actorName: currentProfile?.fullName ?? state.session?.name ?? "A seller",
             what:
               (input.status ?? "published") === "published"
                 ? `Published ${input.address}, ${input.suburb}`
@@ -1616,7 +1688,7 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
           listing
             ? {
                 actorRole: byAdmin ? "admin" : "seller",
-                actorName: state.session?.name ?? "A seller",
+                actorName: currentProfile?.fullName ?? state.session?.name ?? "A seller",
                 what:
                   status === "published"
                     ? `Published ${listing.address}, ${listing.suburb}`
@@ -1687,7 +1759,7 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
           },
           {
             actorRole: "buyer",
-            actorName: state.session?.name ?? state.user.firstName,
+            actorName: currentProfile?.fullName ?? state.user.firstName,
             what: `Registered interest in ${interest.listingAddress}`,
             kind: "interest",
           },
@@ -1727,7 +1799,7 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
             : undefined,
           {
             actorRole: "seller",
-            actorName: state.session?.name ?? "A seller",
+            actorName: currentProfile?.fullName ?? state.session?.name ?? "A seller",
             what: `Replied to a buyer about ${interest?.listingAddress ?? "a property"}`,
             kind: "interest",
           },
@@ -1766,6 +1838,73 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
       },
 
       platformEvents: state.platformEvents,
+
+      /* --------------------------------------------------- account profiles */
+
+      profile: currentProfile,
+
+      /* Admin is an internal account and never onboards. */
+      needsOnboarding:
+        state.session !== null &&
+        state.session.role !== "admin" &&
+        currentProfile === undefined,
+
+      displayName:
+        currentProfile?.fullName ?? state.session?.name ?? "there",
+
+      saveProfile: (input) => {
+        const role = state.session?.role;
+        if (!role) return;
+        const now = new Date().toISOString();
+        const profile: AccountProfile = { ...input, role, completedAt: now };
+
+        commit(
+          (d) => ({
+            ...d,
+            profiles: { ...d.profiles, [role]: profile },
+            /*
+              The buyer experience addresses the person by name throughout, and
+              reads it from `user` rather than the session — so the profile has
+              to write there too, or the greeting and the seeded name disagree.
+            */
+            user:
+              role === "buyer"
+                ? {
+                    ...d.user,
+                    firstName: input.fullName.trim().split(/\s+/)[0] || "there",
+                    lastName: input.fullName.trim().split(/\s+/).slice(1).join(" "),
+                    email: input.email,
+                    phone: input.phone,
+                  }
+                : d.user,
+            /* Keep the admin's account directory truthful. */
+            users: d.users.map((u) =>
+              u.demo && u.role === role
+                ? {
+                    ...u,
+                    name: input.fullName,
+                    phone: input.phone,
+                    email: input.email,
+                  }
+                : u,
+            ),
+          }),
+          undefined,
+          {
+            actorRole: role,
+            actorName: input.fullName,
+            what: `Completed their ${ROLE_LABEL[role].toLowerCase()} profile`,
+            kind: "account",
+          },
+        );
+      },
+
+      myApplication:
+        state.session?.role === "professional" && currentProfile?.professionalApplicationId
+          ? state.applications.find(
+              (a) => a.id === currentProfile.professionalApplicationId,
+            )
+          : undefined,
 
       hasPropId: state.hasPropId,
       pendingProperty: state.pendingProperty,
@@ -1871,6 +2010,7 @@ export function JourneyStoreProvider({ children }: { children: ReactNode }) {
     resolvedProfessionals,
     lookupProfessional,
     currentReadiness,
+    currentProfile,
   ]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

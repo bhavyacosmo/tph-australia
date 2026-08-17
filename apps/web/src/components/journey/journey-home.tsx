@@ -454,10 +454,16 @@ export function JourneyHome({ journeyId }: { journeyId: string }) {
           <h2 id="tools-heading" className="text-h3 text-fg-heading">
             Your tools
           </h2>
-          <RevealGroup
-            className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
-            stagger={0.05}
-          >
+          {/*
+            Two columns, never four.
+
+            This section sits in the 8-of-12 content column beside the utility
+            rail, so `xl:grid-cols-4` gave each card about 175px — the labels
+            broke onto four lines and "Property search" read as two separate
+            words stacked. Two columns give roughly 370px, which is enough for
+            the label on one line and the description on two.
+          */}
+          <RevealGroup className="mt-5 grid gap-4 sm:grid-cols-2" stagger={0.05}>
             {tools.map((tool) => {
               const built = isBuilt(tool.href);
               const inner = (
@@ -470,16 +476,19 @@ export function JourneyHome({ journeyId }: { journeyId: string }) {
                   >
                     <tool.icon aria-hidden="true" className="size-5" />
                   </span>
-                  <span className="min-w-0">
-                    <span className="flex items-center gap-1.5 text-body font-semibold text-fg-heading">
-                      {tool.label}
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-body font-semibold text-fg-heading">
+                      {/* `text-balance` off and `whitespace-nowrap` on: these
+                          labels are short names, and a name that wraps mid-way
+                          stops reading as one thing. */}
+                      <span className="whitespace-nowrap">{tool.label}</span>
                       {!built && (
                         <span className="text-caption font-normal text-fg-muted">
                           next phase
                         </span>
                       )}
                     </span>
-                    <span className="mt-1 block text-body-sm text-fg-secondary">
+                    <span className="mt-1.5 block text-body-sm leading-relaxed text-fg-secondary">
                       {tool.body}
                     </span>
                   </span>
@@ -493,7 +502,7 @@ export function JourneyHome({ journeyId }: { journeyId: string }) {
               );
 
               const shell =
-                "group/tool flex items-start gap-4 rounded-2xl border p-5 transition-[border-color,box-shadow,background-color] duration-[var(--duration-base)] ease-[var(--ease-out-expo)]";
+                "group/tool flex h-full items-start gap-4 rounded-2xl border p-5 transition-[border-color,box-shadow,transform] duration-[var(--duration-base)] ease-[var(--ease-out-expo)]";
 
               return (
                 <RevealItem key={tool.label}>
@@ -502,7 +511,7 @@ export function JourneyHome({ journeyId }: { journeyId: string }) {
                       href={tool.href}
                       className={cn(
                         shell,
-                        "border-line-subtle bg-surface-card hover:border-line hover:shadow-elev-2",
+                        "border-line-subtle bg-surface-card hover:-translate-y-0.5 hover:border-line hover:shadow-elev-2",
                       )}
                     >
                       {inner}

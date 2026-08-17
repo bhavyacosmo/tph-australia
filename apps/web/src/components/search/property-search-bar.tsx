@@ -6,6 +6,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Search, SlidersHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { CompassWizard } from "@/components/search/compass-wizard";
 import { cn } from "@/lib/utils";
 
 /**
@@ -68,11 +69,23 @@ export function PropertySearchBar({
    * input's own text and the filter labels, which must stay left-aligned.
    */
   align = "left",
+  /**
+   * What the Filters button does.
+   *
+   *   `inline` — the three-select panel drops out of the bar. Correct on the
+   *              results page, where the visitor is adjusting a search they can
+   *              already see.
+   *   `wizard` — opens Home Compass one question at a time. Correct on the
+   *              homepage, where there are no results yet and the visitor is
+   *              describing a search rather than narrowing one.
+   */
+  filterMode = "inline",
   className,
 }: {
   initial?: Partial<SearchParamsShape>;
   tone?: "hero" | "page";
   align?: "left" | "center";
+  filterMode?: "inline" | "wizard";
   className?: string;
 }) {
   const router = useRouter();
@@ -84,6 +97,7 @@ export function PropertySearchBar({
   const [beds, setBeds] = useState(initial?.beds ?? "Any");
   const [price, setPrice] = useState(initial?.price ?? "any");
   const [showFilters, setShowFilters] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   const submit = () => {
     router.push(buildSearchHref({ where, mode, type, beds, price }));
@@ -101,12 +115,31 @@ export function PropertySearchBar({
       role="search"
       aria-label="Property search"
     >
-      {/* ---------------------------------------------------------- buy / rent */}
+      {/* ---------------------------------------------------------- buy / rent
+          Rebuilt August 2026: the previous control was a quiet pill pair that
+          reviewers kept missing, so nobody was sure which mode they were
+          searching in. Three changes fix that without adding chrome —
+
+            · the track is white with NAVY labels, and the chosen half inverts
+              to white-on-navy — the colour swap is the state, so it reads at a
+              glance rather than on inspection (client review, 17 Aug 2026;
+              green was tried first and lost to navy, which is the brand's own
+              voice and does not compete with the green Search button beside
+              it);
+            · the capsule slides between halves on a spring, which is what makes
+              the switch legible as a state change rather than a repaint;
+            · each half is equal width and labelled with what it means
+              ("To buy" / "To rent"), because a bare "Buy" beside a search field
+              can be read as a verb.
+
+          `role="radiogroup"` rather than two toggle buttons: these are two
+          values of one setting, and a screen reader should hear it that way. */}
       <div
+        role="radiogroup"
+        aria-label="Search to buy or to rent"
         className={cn(
-          "flex w-fit rounded-full p-1",
+          "relative flex w-fit rounded-full bg-surface-card p-1 ring-1 ring-line-subtle",
           align === "center" && "mx-auto",
-          onDark ? "bg-white/10" : "bg-surface-sunken",
         )}
       >
         {(["buy", "rent"] as const).map((option) => {
@@ -115,31 +148,43 @@ export function PropertySearchBar({
             <button
               key={option}
               type="button"
+              role="radio"
+              aria-checked={active}
               onClick={() => setMode(option)}
-              aria-pressed={active}
               className={cn(
-                "relative flex min-h-11 items-center rounded-full px-6 text-body-sm font-medium capitalize",
-                "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out-expo)]",
-                active
-                  ? onDark
-                    ? "text-navy-900"
-                    : "text-fg-heading"
-                  : onDark
-                    ? "text-white/70 hover:text-white"
-                    : "text-fg-secondary hover:text-fg",
+                "relative flex min-h-11 w-28 items-center justify-center rounded-full text-body-sm font-semibold",
+                "transition-colors duration-[var(--duration-base)] ease-[var(--ease-out-expo)]",
+                /* Navy on white when idle, white on navy when chosen. The
+                   colour inversion IS the state — a reviewer should never have
+                   to look twice to know which mode they are searching in. */
+                active ? "text-white" : "text-brand hover:text-navy-700",
               )}
             >
+              {/*
+                The capsule is a SIBLING painted first, with the label lifted
+                above it — not a `-z-10` child.
+
+                `position: relative` with `z-index: auto` does not create a
+                stacking context, so a negatively-stacked child escaped past the
+                button and painted *behind the track's white background*. The
+                selected label was then white-on-white and the slide was
+                invisible, which is exactly what the client kept reporting.
+              */}
               {active && (
                 <motion.span
                   layoutId={reduce ? undefined : `search-mode-${tone}`}
-                  transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                  className={cn(
-                    "absolute inset-0 -z-10 rounded-full",
-                    onDark ? "bg-white" : "bg-surface-card shadow-elev-1",
-                  )}
+                  transition={
+                    reduce
+                      ? { duration: 0 }
+                      : { type: "spring", stiffness: 400, damping: 32 }
+                  }
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-full bg-brand shadow-control"
                 />
               )}
-              {option}
+              <span className="relative">
+                {option === "buy" ? "To buy" : "To rent"}
+              </span>
             </button>
           );
         })}
@@ -172,8 +217,13 @@ export function PropertySearchBar({
         <div className="flex items-center gap-2">
           <Button
             variant="tertiary"
-            onClick={() => setShowFilters((v) => !v)}
-            aria-expanded={showFilters}
+            onClick={() =>
+              filterMode === "wizard"
+                ? setWizardOpen(true)
+                : setShowFilters((v) => !v)
+            }
+            aria-expanded={filterMode === "wizard" ? wizardOpen : showFilters}
+            aria-haspopup={filterMode === "wizard" ? "dialog" : undefined}
             className="shrink-0"
           >
             <SlidersHorizontal aria-hidden="true" className="size-4" />
@@ -187,11 +237,19 @@ export function PropertySearchBar({
       </div>
 
       {/* ------------------------------------------------------------ filters */}
+      {filterMode === "wizard" && (
+        <CompassWizard
+          open={wizardOpen}
+          onClose={() => setWizardOpen(false)}
+          mode={mode}
+        />
+      )}
+
       <motion.div
         initial={false}
         animate={{
-          height: showFilters ? "auto" : 0,
-          opacity: showFilters ? 1 : 0,
+          height: showFilters && filterMode === "inline" ? "auto" : 0,
+          opacity: showFilters && filterMode === "inline" ? 1 : 0,
         }}
         transition={
           reduce ? { duration: 0 } : { duration: 0.32, ease: [0.16, 1, 0.3, 1] }
